@@ -19,14 +19,28 @@ final class Lecture {
     var summaryData: Data?
     var statusRaw: String
     var errorMessage: String?
+    /// Spoken language, captured when recording so retries ignore later changes in Ajustes.
+    /// The default value lets SwiftData migrate lectures saved before this field existed.
+    var languageRaw: String = AppLanguage.portuguese.rawValue
+    /// nil means the lecture is unfiled ("Sem pasta").
+    var folder: Folder?
 
-    init(audioFileName: String, duration: TimeInterval, createdAt: Date = .now) {
+    init(
+        audioFileName: String, duration: TimeInterval, language: AppLanguage,
+        folder: Folder? = nil, createdAt: Date = .now
+    ) {
         self.id = UUID()
+        self.folder = folder
         self.title = ""
         self.createdAt = createdAt
         self.duration = duration
         self.audioFileName = audioFileName
         self.statusRaw = Status.recorded.rawValue
+        self.languageRaw = language.rawValue
+    }
+
+    var language: AppLanguage {
+        AppLanguage(rawValue: languageRaw) ?? .portuguese
     }
 
     var status: Status {

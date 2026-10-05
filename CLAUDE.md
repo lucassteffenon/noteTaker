@@ -19,12 +19,21 @@ There are no tests yet. The project uses file-system-synchronized groups (`PBXFi
 
 `RecordingView` → `AudioRecorder` (AAC, 16 kHz mono) → a `Lecture` is saved (SwiftData) → `LectureProcessor.process` runs:
 
-1. **Transcription** – `LectureTranscriber` uses Apple's `SpeechAnalyzer`/`SpeechTranscriber` (on-device, pt-BR). The locale must be reserved with `AssetInventory.reserve(locale:)` before the model is installed. **It doesn't work on the Simulator** (`SpeechTranscriber.isAvailable == false`), so test on a real iPhone, or run the same code from a Swift script on macOS 26.
-2. **Summary** – `Summarizer` calls the Claude Messages API over raw HTTP (there is no official Swift SDK): model `claude-opus-5-5`, structured outputs (`output_config.format` with a JSON schema) and `fallbacks: "default"` (beta header `server-side-fallback-2026-07-01`). The JSON schema in `Summarizer.schema` must stay in sync with `LectureSummary`.
+1. **Transcription** – `LectureTranscriber` uses Apple's `SpeechAnalyzer`/`SpeechTranscriber` on-device, in the lecture's language (`AppLanguage`: pt-BR or en-US). The language is chosen in Ajustes and copied into `Lecture.languageRaw` when recording starts, so retries keep using it. The summary language is a separate setting, passed to `SummaryPrompt.system(for:)`. The locale must be reserved with `AssetInventory.reserve(locale:)` before the model is installed. **It doesn't work on the Simulator** (`SpeechTranscriber.isAvailable == false`), so test on a real iPhone, or run the same code from a Swift script on macOS 26.
+2. **Summary** – the user picks the provider in Ajustes (`SummaryProvider`: Claude, OpenAI or Gemini, stored in `UserDefaults`). Each one implements the `Summarizer` protocol over raw HTTP and asks for JSON output using the same prompt and schema (`SummaryPrompt`, which must stay in sync with `LectureSummary`):
+   - `ClaudeSummarizer`: Messages API, `claude-opus-5-5`, `output_config.format` + `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`).
+   - `OpenAISummarizer`: Responses API, `gpt-6-astra`, `text.format` with a strict `json_schema`.
+   - `GeminiSummarizer`: `generateContent`, `gemini-3.8-flash`, `responseJsonSchema`. The key goes in the `x-goog-api-key` header, never in the URL.
+
+   All three APIs return errors as `{"error": {"message": ...}}`, which `SummaryHTTP.post` handles in one place. Model IDs are constants in each summarizer.
 
 Each step is persisted in `Lecture` (`transcript`, `summaryData`, `statusRaw`), so "Tentar novamente" (retry) skips the transcription when it already exists. A lecture stuck in `transcribing`/`summarizing` without a running task (the app was closed) is treated as interrupted in the UI and can be retried.
+
+## Folders
+
+`Folder` (SwiftData) groups lectures, one level only. `Lecture.folder == nil` means "Sem pasta" (unfiled). The relationship uses `deleteRule: .nullify`, so deleting a folder keeps its lectures. `LibraryView` is the root screen (folders + unfiled lectures); `FolderView` lists one folder; both reuse `LectureRows` (row, long-press "Mover para" menu, delete) and `RecordLectureButton`, which passes the folder to `RecordingView`. New stored properties on the models need a default value (or must be optional) so SwiftData can migrate existing data.
 
 ## Storage
 
 - Audio: `Documents/Recordings/<uuid>.m4a`. `Lecture` stores only the file name, because the container path changes between installs.
-- Anthropic API key: Keychain (`KeychainStore`), entered in Ajustes (Settings). Never hardcode it.
+- API keys: one per provider in the Keychain (`KeychainStore`), entered in Ajustes (Settings). Never hardcode them.

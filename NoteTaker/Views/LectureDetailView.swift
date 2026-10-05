@@ -54,7 +54,7 @@ struct LectureDetailView: View {
             ProgressView("Transcrevendo no aparelho… mantenha o app aberto.")
                 .frame(maxWidth: .infinity)
         case .summarizing where isRunning:
-            ProgressView("Gerando resumo com o Claude…")
+            ProgressView("Gerando resumo com o \(SummaryProvider.selected.displayName)…")
                 .frame(maxWidth: .infinity)
         case .done:
             EmptyView()

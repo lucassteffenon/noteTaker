@@ -2,12 +2,16 @@ import SwiftData
 import SwiftUI
 
 struct RecordingView: View {
+    /// Folder the new lecture is filed in; nil for "Sem pasta".
+    let folder: Folder?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Environment(LectureProcessor.self) private var processor
     @State private var recorder = AudioRecorder()
     @State private var errorMessage: String?
     @State private var confirmDiscard = false
+    /// Read once when the screen opens, so the whole recording uses one language.
+    private let language = AppLanguage.lecture
 
     var body: some View {
         VStack(spacing: 32) {
@@ -23,8 +27,15 @@ struct RecordingView: View {
                     .font(.system(size: 56, weight: .light, design: .monospaced))
             }
 
-            Text(recorder.isPaused ? "Pausado" : "Gravando… pode bloquear a tela.")
-                .foregroundStyle(.secondary)
+            VStack(spacing: 8) {
+                Text(recorder.isPaused ? "Pausado" : "Gravando… pode bloquear a tela.")
+                HStack(spacing: 16) {
+                    Label("Aula em \(language.displayName.lowercased())", systemImage: "globe")
+                    Label(folder?.name ?? "Sem pasta", systemImage: "folder")
+                }
+                .font(.footnote)
+            }
+            .foregroundStyle(.secondary)
 
             Spacer()
 
@@ -80,7 +91,10 @@ struct RecordingView: View {
 
     private func finish() {
         guard let result = recorder.stop() else { return }
-        let lecture = Lecture(audioFileName: result.url.lastPathComponent, duration: result.duration)
+        let lecture = Lecture(
+            audioFileName: result.url.lastPathComponent, duration: result.duration, language: language,
+            folder: folder
+        )
         context.insert(lecture)
         try? context.save()
         processor.process(lecture, in: context)

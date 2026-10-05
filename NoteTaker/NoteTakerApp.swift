@@ -7,9 +7,9 @@ struct NoteTakerApp: App {
 
     var body: some Scene {
         WindowGroup {
-            LectureListView()
+            LibraryView()
                 .environment(processor)
         }
-        .modelContainer(for: Lecture.self)
+        .modelContainer(for: [Lecture.self, Folder.self])
     }
 }

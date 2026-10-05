@@ -1,43 +1,48 @@
 import Foundation
 
+/// Turns a lecture transcript into a `LectureSummary`. One implementation per `SummaryProvider`;
+/// each calls its provider's HTTP API directly and asks for JSON matching `SummaryPrompt.schema`.
+protocol Summarizer {
+    func summarize(transcript: String, language: AppLanguage) async throws -> LectureSummary
+}
+
 enum SummarizerError: LocalizedError {
-    case missingAPIKey
-    case api(status: Int, message: String)
-    case refused
+    case missingAPIKey(SummaryProvider)
+    case api(SummaryProvider, status: Int, message: String)
+    case refused(SummaryProvider)
     case truncated
-    case invalidResponse
+    case invalidResponse(SummaryProvider)
 
     var errorDescription: String? {
         switch self {
-        case .missingAPIKey:
-            "Configure sua chave da API do Claude nos Ajustes do app."
-        case .api(let status, let message):
-            "Erro da API do Claude (\(status)): \(message)"
-        case .refused:
-            "O Claude recusou gerar o resumo desta aula."
+        case .missingAPIKey(let provider):
+            "Configure sua chave da API do \(provider.displayName) nos Ajustes do app."
+        case .api(let provider, let status, let message):
+            "Erro da API do \(provider.displayName) (\(status)): \(message)"
+        case .refused(let provider):
+            "O \(provider.displayName) recusou gerar o resumo desta aula."
         case .truncated:
             "O resumo ficou longo demais e foi cortado. Tente novamente."
-        case .invalidResponse:
-            "Resposta inesperada da API do Claude."
+        case .invalidResponse(let provider):
+            "Resposta inesperada da API do \(provider.displayName)."
         }
     }
 }
 
-/// Turns a lecture transcript into a `LectureSummary` with the Claude Messages API.
-/// There is no official Swift SDK, so this calls the HTTP API directly.
-struct Summarizer {
-    let apiKey: String
-
-    private static let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
-    private static let model = "claude-opus-5-5"
-
-    private static let systemPrompt = """
+/// Instructions and output schema shared by every provider.
+enum SummaryPrompt {
+    /// `language` is the language the summary is written in, which may differ from the lecture's.
+    static func system(for language: AppLanguage) -> String {
+        """
         Você ajuda um estudante universitário a revisar as aulas que ele gravou. \
         Você recebe a transcrição automática de uma aula, que pode conter erros de \
         reconhecimento de fala: corrija termos técnicos e nomes pelo contexto, sem inventar \
         conteúdo que o professor não disse.
 
-        Escreva tudo em português do Brasil e preencha:
+        Escreva todo o conteúdo em \(language.promptName). Se a aula estiver em outro idioma, \
+        mantenha os termos técnicos importantes também no idioma original, entre parênteses.
+
+        Preencha:
         - title: um título curto para a aula, com o tema principal.
         - overview: um resumo de 2 a 4 parágrafos do que foi ensinado, na ordem da aula.
         - keyPoints: os pontos mais importantes, cada um autossuficiente para revisão.
@@ -45,8 +50,10 @@ struct Summarizer {
         - assignments: provas, trabalhos, leituras, prazos e avisos mencionados. Lista vazia se não houver.
         - reviewQuestions: perguntas para o estudante testar se entendeu a matéria.
         """
+    }
 
-    private static let schema: [String: Any] = {
+    /// JSON Schema for `LectureSummary`; keep the two in sync.
+    static let schema: [String: Any] = {
         let strings: [String: Any] = ["type": "array", "items": ["type": "string"]]
         let concept: [String: Any] = [
             "type": "object",
@@ -69,73 +76,49 @@ struct Summarizer {
         ]
     }()
 
-    func summarize(transcript: String) async throws -> LectureSummary {
-        let body: [String: Any] = [
-            "model": Self.model,
-            "max_tokens": 16_000,
-            // Re-runs the request on Anthropic's recommended model if this one declines.
-            "fallbacks": "default",
-            "output_config": [
-                "effort": "medium",
-                "format": ["type": "json_schema", "schema": Self.schema],
-            ],
-            "system": Self.systemPrompt,
-            "messages": [
-                ["role": "user", "content": "<transcricao>\n\(transcript)\n</transcricao>"],
-            ],
-        ]
+    static func userMessage(for transcript: String) -> String {
+        "<transcricao>\n\(transcript)\n</transcricao>"
+    }
 
-        var request = URLRequest(url: Self.endpoint)
+    static func decode(_ json: String, from provider: SummaryProvider) throws -> LectureSummary {
+        do {
+            return try JSONDecoder().decode(LectureSummary.self, from: Data(json.utf8))
+        } catch {
+            throw SummarizerError.invalidResponse(provider)
+        }
+    }
+}
+
+/// HTTP plumbing shared by the summarizers.
+enum SummaryHTTP {
+    static func post(
+        _ url: URL, headers: [String: String], body: [String: Any], provider: SummaryProvider
+    ) async throws -> Data {
+        var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.timeoutInterval = 600
         request.setValue("application/json", forHTTPHeaderField: "content-type")
-        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-        request.setValue("server-side-fallback-2026-07-01", forHTTPHeaderField: "anthropic-beta")
+        for (field, value) in headers {
+            request.setValue(value, forHTTPHeaderField: field)
+        }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw SummarizerError.invalidResponse }
+        guard let http = response as? HTTPURLResponse else { throw SummarizerError.invalidResponse(provider) }
         guard http.statusCode == 200 else {
-            let message = (try? JSONDecoder().decode(APIErrorBody.self, from: data))?.error.message
+            // Anthropic, OpenAI and Gemini all report errors as {"error": {"message": ...}}.
+            let message = (try? JSONDecoder().decode(ErrorBody.self, from: data))?.error.message
                 ?? HTTPURLResponse.localizedString(forStatusCode: http.statusCode)
-            throw SummarizerError.api(status: http.statusCode, message: message)
+            throw SummarizerError.api(provider, status: http.statusCode, message: message)
+        }
+        return data
+    }
+
+    private struct ErrorBody: Decodable {
+        struct Detail: Decodable {
+            let message: String
         }
 
-        let message = try JSONDecoder().decode(MessageBody.self, from: data)
-        switch message.stopReason {
-        case "refusal": throw SummarizerError.refused
-        case "max_tokens": throw SummarizerError.truncated
-        default: break
-        }
-
-        // Structured outputs put the JSON in the text block; thinking blocks are skipped.
-        guard let json = message.content.first(where: { $0.type == "text" })?.text else {
-            throw SummarizerError.invalidResponse
-        }
-        return try JSONDecoder().decode(LectureSummary.self, from: Data(json.utf8))
+        let error: Detail
     }
-}
-
-private struct MessageBody: Decodable {
-    struct Block: Decodable {
-        let type: String
-        let text: String?
-    }
-
-    let content: [Block]
-    let stopReason: String?
-
-    enum CodingKeys: String, CodingKey {
-        case content
-        case stopReason = "stop_reason"
-    }
-}
-
-private struct APIErrorBody: Decodable {
-    struct Detail: Decodable {
-        let message: String
-    }
-
-    let error: Detail
 }

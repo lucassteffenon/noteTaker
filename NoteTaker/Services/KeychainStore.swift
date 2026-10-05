@@ -1,21 +1,28 @@
 import Foundation
 import Security
 
-/// Stores the Anthropic API key in the device Keychain.
+/// Stores one API key per `SummaryProvider` in the device Keychain.
 enum KeychainStore {
     private static let service = "NoteTaker"
-    private static let account = "anthropic-api-key"
 
-    private static var baseQuery: [String: Any] {
+    private static func account(for provider: SummaryProvider) -> String {
+        switch provider {
+        case .claude: "anthropic-api-key"
+        case .openAI: "openai-api-key"
+        case .gemini: "gemini-api-key"
+        }
+    }
+
+    private static func baseQuery(for provider: SummaryProvider) -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
+            kSecAttrAccount as String: account(for: provider),
         ]
     }
 
-    static var apiKey: String? {
-        var query = baseQuery
+    static func apiKey(for provider: SummaryProvider) -> String? {
+        var query = baseQuery(for: provider)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
 
@@ -26,11 +33,11 @@ enum KeychainStore {
         return String(data: data, encoding: .utf8)
     }
 
-    static func setAPIKey(_ value: String?) {
-        SecItemDelete(baseQuery as CFDictionary)
+    static func setAPIKey(_ value: String?, for provider: SummaryProvider) {
+        SecItemDelete(baseQuery(for: provider) as CFDictionary)
         guard let value, !value.isEmpty else { return }
 
-        var query = baseQuery
+        var query = baseQuery(for: provider)
         query[kSecValueData as String] = Data(value.utf8)
         query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         SecItemAdd(query as CFDictionary, nil)

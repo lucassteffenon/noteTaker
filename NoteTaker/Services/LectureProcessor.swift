@@ -24,16 +24,22 @@ final class LectureProcessor {
                     lecture.status = .transcribing
                     lecture.errorMessage = nil
                     try? context.save()
-                    lecture.transcript = try await LectureTranscriber.transcribe(fileURL: lecture.audioURL)
+                    lecture.transcript = try await LectureTranscriber.transcribe(
+                        fileURL: lecture.audioURL, language: lecture.language
+                    )
                     try? context.save()
                 }
 
-                guard let apiKey = KeychainStore.apiKey else { throw SummarizerError.missingAPIKey }
+                let provider = SummaryProvider.selected
+                guard let apiKey = KeychainStore.apiKey(for: provider) else {
+                    throw SummarizerError.missingAPIKey(provider)
+                }
                 lecture.status = .summarizing
                 lecture.errorMessage = nil
                 try? context.save()
 
-                let summary = try await Summarizer(apiKey: apiKey).summarize(transcript: lecture.transcript ?? "")
+                let summary = try await provider.makeSummarizer(apiKey: apiKey)
+                    .summarize(transcript: lecture.transcript ?? "", language: AppLanguage.summary)
                 lecture.summary = summary
                 if lecture.title.isEmpty { lecture.title = summary.title }
                 lecture.status = .done

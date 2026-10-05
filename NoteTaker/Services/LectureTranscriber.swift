@@ -6,15 +6,15 @@ private let log = Logger(subsystem: "com.lucassteffenon.NoteTaker", category: "T
 
 enum TranscriptionError: LocalizedError {
     case unavailable
-    case localeNotSupported
+    case localeNotSupported(AppLanguage)
     case emptyTranscript
 
     var errorDescription: String? {
         switch self {
         case .unavailable:
             "A transcrição no aparelho não está disponível aqui. Use um iPhone real com iOS 26."
-        case .localeNotSupported:
-            "Este aparelho não suporta transcrição em português."
+        case .localeNotSupported(let language):
+            "Este aparelho não suporta transcrição em \(language.displayName.lowercased())."
         case .emptyTranscript:
             "Nenhuma fala foi reconhecida na gravação."
         }
@@ -23,13 +23,11 @@ enum TranscriptionError: LocalizedError {
 
 /// On-device transcription with Apple's SpeechAnalyzer (iOS 26+).
 enum LectureTranscriber {
-    static func transcribe(
-        fileURL: URL, locale: Locale = Locale(identifier: "pt-BR")
-    ) async throws -> String {
+    static func transcribe(fileURL: URL, language: AppLanguage) async throws -> String {
         // False on the Simulator and on devices without on-device speech models.
         guard SpeechTranscriber.isAvailable else { throw TranscriptionError.unavailable }
-        guard let supportedLocale = await SpeechTranscriber.supportedLocale(equivalentTo: locale) else {
-            throw TranscriptionError.localeNotSupported
+        guard let supportedLocale = await SpeechTranscriber.supportedLocale(equivalentTo: language.locale) else {
+            throw TranscriptionError.localeNotSupported(language)
         }
         let transcriber = SpeechTranscriber(locale: supportedLocale, preset: .transcription)
 
