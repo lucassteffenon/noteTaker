@@ -3,11 +3,11 @@ import Foundation
 /// Gemini `generateContent` with JSON output (`responseJsonSchema`).
 struct GeminiSummarizer: Summarizer {
     let apiKey: String
+    let model: String
 
-    private static let model = "gemini-3.8-flash"
-    private static let endpoint = URL(
-        string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent"
-    )!
+    private var endpoint: URL {
+        URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent")!
+    }
 
     func summarize(transcript: String, language: AppLanguage) async throws -> LectureSummary {
         let body: [String: Any] = [
@@ -22,7 +22,7 @@ struct GeminiSummarizer: Summarizer {
         ]
         // Sent as a header rather than the `?key=` query parameter so it stays out of URLs and logs.
         let headers = ["x-goog-api-key": apiKey]
-        let data = try await SummaryHTTP.post(Self.endpoint, headers: headers, body: body, provider: .gemini)
+        let data = try await SummaryHTTP.post(endpoint, headers: headers, body: body, provider: .gemini)
 
         let response = try JSONDecoder().decode(ResponseBody.self, from: data)
         guard let candidate = response.candidates?.first else {

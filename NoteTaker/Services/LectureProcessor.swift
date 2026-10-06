@@ -38,7 +38,7 @@ final class LectureProcessor {
                 lecture.errorMessage = nil
                 try? context.save()
 
-                let summary = try await provider.makeSummarizer(apiKey: apiKey)
+                let summary = try await provider.makeSummarizer(apiKey: apiKey, model: provider.selectedModel)
                     .summarize(transcript: lecture.transcript ?? "", language: AppLanguage.summary)
                 lecture.summary = summary
                 if lecture.title.isEmpty { lecture.title = summary.title }

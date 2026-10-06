@@ -11,6 +11,9 @@ struct SettingsView: View {
     @State private var apiKeys = Dictionary(
         uniqueKeysWithValues: SummaryProvider.allCases.map { ($0, KeychainStore.apiKey(for: $0) ?? "") }
     )
+    @State private var models = Dictionary(
+        uniqueKeysWithValues: SummaryProvider.allCases.map { ($0, $0.selectedModel) }
+    )
 
     var body: some View {
         NavigationStack {
@@ -33,10 +36,16 @@ struct SettingsView: View {
                         ForEach(SummaryProvider.allCases) { Text($0.displayName).tag($0) }
                     }
                     .pickerStyle(.segmented)
+
+                    Picker("Modelo", selection: modelBinding(for: provider)) {
+                        ForEach(provider.models) { model in
+                            Text("\(model.name) · \(model.cost)").tag(model)
+                        }
+                    }
                 } header: {
                     Text("IA que gera os resumos")
                 } footer: {
-                    Text("A transcrição é sempre feita no aparelho. Só o texto da aula é enviado ao serviço escolhido.")
+                    Text("Custo estimado por aula de 1h30. A transcrição é sempre feita no aparelho, de graça; só o texto da aula é enviado ao serviço escolhido.")
                 }
 
                 Section {
@@ -66,9 +75,16 @@ struct SettingsView: View {
         Binding(get: { apiKeys[provider, default: ""] }, set: { apiKeys[provider] = $0 })
     }
 
+    private func modelBinding(for provider: SummaryProvider) -> Binding<SummaryModel> {
+        Binding(get: { models[provider] ?? provider.selectedModel }, set: { models[provider] = $0 })
+    }
+
     private func save() {
         for (provider, key) in apiKeys {
             KeychainStore.setAPIKey(key.trimmingCharacters(in: .whitespacesAndNewlines), for: provider)
+        }
+        for (provider, model) in models {
+            UserDefaults.standard.set(model.id, forKey: provider.modelDefaultsKey)
         }
         savedProvider = provider
         savedLectureLanguage = lectureLanguage

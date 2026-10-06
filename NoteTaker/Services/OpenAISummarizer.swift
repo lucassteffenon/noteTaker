@@ -5,11 +5,11 @@ struct OpenAISummarizer: Summarizer {
     let apiKey: String
 
     private static let endpoint = URL(string: "https://api.openai.com/v1/responses")!
-    private static let model = "gpt-6-astra"
+    let model: String
 
     func summarize(transcript: String, language: AppLanguage) async throws -> LectureSummary {
         let body: [String: Any] = [
-            "model": Self.model,
+            "model": model,
             "input": [
                 ["role": "system", "content": SummaryPrompt.system(for: language)],
                 ["role": "user", "content": SummaryPrompt.userMessage(for: transcript)],

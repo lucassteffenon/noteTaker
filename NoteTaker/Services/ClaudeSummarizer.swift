@@ -3,30 +3,36 @@ import Foundation
 /// Claude Messages API with structured outputs. There is no official Swift SDK.
 struct ClaudeSummarizer: Summarizer {
     let apiKey: String
+    let model: String
 
     private static let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
-    private static let model = "claude-opus-5-5"
+
+    /// Haiku 4.5 rejects `effort` and server-side fallbacks; Opus 5.5 and Sonnet 5.5 accept both.
+    private var supportsEffortAndFallbacks: Bool { model != "claude-haiku-4-5" }
 
     func summarize(transcript: String, language: AppLanguage) async throws -> LectureSummary {
-        let body: [String: Any] = [
-            "model": Self.model,
+        var outputConfig: [String: Any] = [
+            "format": ["type": "json_schema", "schema": SummaryPrompt.schema],
+        ]
+        var body: [String: Any] = [
+            "model": model,
             "max_tokens": 16_000,
-            // Re-runs the request on Anthropic's recommended model if this one declines.
-            "fallbacks": "default",
-            "output_config": [
-                "effort": "medium",
-                "format": ["type": "json_schema", "schema": SummaryPrompt.schema],
-            ],
             "system": SummaryPrompt.system(for: language),
             "messages": [
                 ["role": "user", "content": SummaryPrompt.userMessage(for: transcript)],
             ],
         ]
-        let headers = [
+        var headers = [
             "x-api-key": apiKey,
             "anthropic-version": "2023-06-01",
-            "anthropic-beta": "server-side-fallback-2026-07-01",
         ]
+        if supportsEffortAndFallbacks {
+            outputConfig["effort"] = "medium"
+            // Re-runs the request on Anthropic's recommended model if this one declines.
+            body["fallbacks"] = "default"
+            headers["anthropic-beta"] = "server-side-fallback-2026-07-01"
+        }
+        body["output_config"] = outputConfig
         let data = try await SummaryHTTP.post(Self.endpoint, headers: headers, body: body, provider: .claude)
 
         let message = try JSONDecoder().decode(MessageBody.self, from: data)
