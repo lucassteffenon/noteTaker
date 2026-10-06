@@ -2,9 +2,11 @@ import SwiftData
 import SwiftUI
 
 /// Lecture rows shared by the library (unfiled lectures) and folder screens.
-/// Long-press a row to move it to another folder or delete it.
+/// Long-press a row to rename, move it to another folder or delete it.
 struct LectureRows: View {
     let lectures: [Lecture]
+    /// Called from the context menu; the parent list shows `renameLectureAlert`.
+    let onRename: (Lecture) -> Void
     @Environment(\.modelContext) private var context
     @Query(sort: \Folder.name) private var folders: [Folder]
 
@@ -14,6 +16,7 @@ struct LectureRows: View {
                 LectureRow(lecture: lecture)
             }
             .contextMenu {
+                Button("Renomear", systemImage: "pencil") { onRename(lecture) }
                 Menu("Mover para", systemImage: "folder") {
                     Button("Sem pasta", systemImage: "tray") { move(lecture, to: nil) }
                         .disabled(lecture.folder == nil)

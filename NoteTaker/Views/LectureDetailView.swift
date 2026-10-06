@@ -6,6 +6,8 @@ struct LectureDetailView: View {
     @Environment(\.modelContext) private var context
     @Environment(LectureProcessor.self) private var processor
     @State private var tab = Tab.summary
+    @State private var player = LecturePlayer()
+    @State private var lectureToRename: Lecture?
 
     private enum Tab {
         case summary, transcript
@@ -33,17 +35,39 @@ struct LectureDetailView: View {
 
                     switch tab {
                     case .summary:
-                        if let summary = lecture.summary { SummaryView(summary: summary) }
+                        if let summary = lecture.summary {
+                            SummaryView(summary: summary, player: availablePlayer)
+                        }
                     case .transcript:
-                        Text(lecture.transcript ?? "")
-                            .textSelection(.enabled)
+                        if lecture.segments.isEmpty {
+                            // Lectures transcribed before phrase timing was stored.
+                            Text(lecture.transcript ?? "")
+                                .textSelection(.enabled)
+                        } else {
+                            TranscriptView(segments: lecture.segments, player: availablePlayer)
+                        }
                     }
                 }
             }
             .padding()
         }
+        .safeAreaInset(edge: .bottom) {
+            if player.isLoaded { AudioPlayerBar(player: player) }
+        }
         .navigationTitle(lecture.displayTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Renomear", systemImage: "pencil") { lectureToRename = lecture }
+            }
+        }
+        .renameLectureAlert($lectureToRename)
+        .onAppear { player.load(lecture.audioURL) }
+        .onDisappear { player.pause() }
+    }
+
+    private var availablePlayer: LecturePlayer? {
+        player.isLoaded ? player : nil
     }
 
     @ViewBuilder
@@ -51,8 +75,11 @@ struct LectureDetailView: View {
         let isRunning = processor.isProcessing(lecture)
         switch lecture.status {
         case .transcribing where isRunning:
-            ProgressView("Transcrevendo no aparelho… mantenha o app aberto.")
-                .frame(maxWidth: .infinity)
+            ProgressView(value: processor.transcriptionProgress[lecture.id] ?? 0) {
+                Text("Transcrevendo no aparelho…")
+            } currentValueLabel: {
+                Text("Pode sair do app: o iPhone continua processando.")
+            }
         case .summarizing where isRunning:
             ProgressView("Gerando resumo com o \(SummaryProvider.selected.displayName)…")
                 .frame(maxWidth: .infinity)
@@ -70,65 +97,6 @@ struct LectureDetailView: View {
                     processor.process(lecture, in: context)
                 }
                 .buttonStyle(.borderedProminent)
-            }
-        }
-    }
-}
-
-private struct SummaryView: View {
-    let summary: LectureSummary
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 28) {
-            section("Resumo", systemImage: "doc.text") {
-                Text(summary.overview)
-            }
-
-            section("Pontos importantes", systemImage: "star") {
-                bullets(summary.keyPoints)
-            }
-
-            if !summary.concepts.isEmpty {
-                section("Conceitos", systemImage: "book") {
-                    ForEach(summary.concepts, id: \.self) { concept in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(concept.term).bold()
-                            Text(concept.explanation).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-
-            if !summary.assignments.isEmpty {
-                section("Provas, trabalhos e avisos", systemImage: "calendar.badge.exclamationmark") {
-                    bullets(summary.assignments)
-                }
-            }
-
-            if !summary.reviewQuestions.isEmpty {
-                section("Perguntas para revisar", systemImage: "questionmark.bubble") {
-                    bullets(summary.reviewQuestions)
-                }
-            }
-        }
-        .textSelection(.enabled)
-    }
-
-    private func section(
-        _ title: String, systemImage: String, @ViewBuilder content: () -> some View
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label(title, systemImage: systemImage)
-                .font(.title3.bold())
-            content()
-        }
-    }
-
-    private func bullets(_ items: [String]) -> some View {
-        ForEach(items, id: \.self) { item in
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("•")
-                Text(item)
             }
         }
     }

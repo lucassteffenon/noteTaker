@@ -24,6 +24,8 @@ final class Lecture {
     var languageRaw: String = AppLanguage.portuguese.rawValue
     /// nil means the lecture is unfiled ("Sem pasta").
     var folder: Folder?
+    /// JSON-encoded `[TranscriptSegment]`. nil for lectures transcribed before timing was stored.
+    var segmentsData: Data?
 
     init(
         audioFileName: String, duration: TimeInterval, language: AppLanguage,
@@ -51,6 +53,11 @@ final class Lecture {
     var summary: LectureSummary? {
         get { summaryData.flatMap { try? JSONDecoder().decode(LectureSummary.self, from: $0) } }
         set { summaryData = newValue.flatMap { try? JSONEncoder().encode($0) } }
+    }
+
+    var segments: [TranscriptSegment] {
+        get { segmentsData.flatMap { try? JSONDecoder().decode([TranscriptSegment].self, from: $0) } ?? [] }
+        set { segmentsData = newValue.isEmpty ? nil : try? JSONEncoder().encode(newValue) }
     }
 
     var audioURL: URL {

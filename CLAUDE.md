@@ -29,7 +29,11 @@ There are no tests yet. The project uses file-system-synchronized groups (`PBXFi
 
    All three APIs return errors as `{"error": {"message": ...}}`, which `SummaryHTTP.post` handles in one place. The models offered per provider (cheapest first, which is the default) and their estimated cost per 1h30 lecture live in `SummaryProvider.models`; the user picks one in Ajustes.
 
-Each step is persisted in `Lecture` (`transcript`, `summaryData`, `statusRaw`), so "Tentar novamente" (retry) skips the transcription when it already exists. A lecture stuck in `transcribing`/`summarizing` without a running task (the app was closed) is treated as interrupted in the UI and can be retried.
+Each step is persisted in `Lecture` (`transcript`, `segmentsData`, `summaryData`, `statusRaw`), so "Tentar novamente" (retry) skips the transcription when it already exists. A lecture stuck in `transcribing`/`summarizing` without a running task (the app was closed) is treated as interrupted in the UI and can be retried.
+
+**Background:** `LectureProcessor` runs the pipeline in a normal `Task`, and `ContinuedProcessing` submits an iOS 26 `BGContinuedProcessingTask` (unique id under the `BGTaskSchedulerPermittedIdentifiers` wildcard in `Config/Info.plist`, plus the `processing` background mode) that mirrors its `Progress` and cancels it on expiration. On the Simulator the submit fails with "unavailable" and the work only runs in the foreground; test on a device.
+
+**Playback:** the transcriber stores phrase-level `TranscriptSegment`s (start/end seconds). The summary request sends the transcript as ~30 s blocks prefixed with `[123s]`, and the AI returns `startSeconds` for key points and concepts (-1 = unknown). `LectureSummary.KeyPoint` also decodes the old plain-string format. `LecturePlayer` + `TranscriptView`/`AudioPlayerBar` (PlaybackViews.swift) play the recording from a tapped phrase or summary item.
 
 ## Folders
 

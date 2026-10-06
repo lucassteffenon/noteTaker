@@ -3,6 +3,7 @@ import SwiftUI
 /// Lectures inside one folder. Recording from here files the new lecture in this folder.
 struct FolderView: View {
     let folder: Folder
+    @State private var lectureToRename: Lecture?
 
     private var lectures: [Lecture] {
         folder.lectures.sorted { $0.createdAt > $1.createdAt }
@@ -18,11 +19,12 @@ struct FolderView: View {
                 )
             } else {
                 List {
-                    LectureRows(lectures: lectures)
+                    LectureRows(lectures: lectures) { lectureToRename = $0 }
                 }
             }
         }
         .navigationTitle(folder.name)
         .safeAreaInset(edge: .bottom) { RecordLectureButton(folder: folder) }
+        .renameLectureAlert($lectureToRename)
     }
 }

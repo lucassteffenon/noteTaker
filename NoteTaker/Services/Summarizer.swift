@@ -42,6 +42,9 @@ enum SummaryPrompt {
         Escreva todo o conteúdo em \(language.promptName). Se a aula estiver em outro idioma, \
         mantenha os termos técnicos importantes também no idioma original, entre parênteses.
 
+        A transcrição vem em trechos que começam com uma marcação como [754s], o segundo da \
+        gravação em que o trecho começa.
+
         Preencha:
         - title: um título curto para a aula, com o tema principal.
         - overview: um resumo de 2 a 4 parágrafos do que foi ensinado, na ordem da aula.
@@ -49,16 +52,29 @@ enum SummaryPrompt {
         - concepts: termos, definições, fórmulas ou teorias apresentados, com uma explicação clara.
         - assignments: provas, trabalhos, leituras, prazos e avisos mencionados. Lista vazia se não houver.
         - reviewQuestions: perguntas para o estudante testar se entendeu a matéria.
+
+        Em keyPoints e concepts, startSeconds é o segundo da marcação do trecho em que aquele \
+        assunto começa a ser explicado. Use -1 se a transcrição não tiver marcações.
         """
     }
 
     /// JSON Schema for `LectureSummary`; keep the two in sync.
     static let schema: [String: Any] = {
         let strings: [String: Any] = ["type": "array", "items": ["type": "string"]]
+        let keyPoint: [String: Any] = [
+            "type": "object",
+            "properties": ["text": ["type": "string"], "startSeconds": ["type": "number"]],
+            "required": ["text", "startSeconds"],
+            "additionalProperties": false,
+        ]
         let concept: [String: Any] = [
             "type": "object",
-            "properties": ["term": ["type": "string"], "explanation": ["type": "string"]],
-            "required": ["term", "explanation"],
+            "properties": [
+                "term": ["type": "string"],
+                "explanation": ["type": "string"],
+                "startSeconds": ["type": "number"],
+            ],
+            "required": ["term", "explanation", "startSeconds"],
             "additionalProperties": false,
         ]
         return [
@@ -66,7 +82,7 @@ enum SummaryPrompt {
             "properties": [
                 "title": ["type": "string"],
                 "overview": ["type": "string"],
-                "keyPoints": strings,
+                "keyPoints": ["type": "array", "items": keyPoint],
                 "concepts": ["type": "array", "items": concept],
                 "assignments": strings,
                 "reviewQuestions": strings,
@@ -78,6 +94,26 @@ enum SummaryPrompt {
 
     static func userMessage(for transcript: String) -> String {
         "<transcricao>\n\(transcript)\n</transcricao>"
+    }
+
+    /// The transcript as sent to the AI: phrases merged into ~30 s blocks, each prefixed with
+    /// its start second so the summary can point back into the recording. Falls back to the
+    /// plain text for lectures transcribed before segments were stored.
+    static func timestampedTranscript(_ segments: [TranscriptSegment], fallback: String) -> String {
+        guard !segments.isEmpty else { return fallback }
+        var blocks: [String] = []
+        var blockStart: TimeInterval = 0
+        var blockText = ""
+        for segment in segments {
+            if blockText.isEmpty { blockStart = segment.start }
+            blockText += blockText.isEmpty ? segment.text : " " + segment.text
+            if segment.end - blockStart >= 30 {
+                blocks.append("[\(Int(blockStart))s] \(blockText)")
+                blockText = ""
+            }
+        }
+        if !blockText.isEmpty { blocks.append("[\(Int(blockStart))s] \(blockText)") }
+        return blocks.joined(separator: "\n")
     }
 
     static func decode(_ json: String, from provider: SummaryProvider) throws -> LectureSummary {

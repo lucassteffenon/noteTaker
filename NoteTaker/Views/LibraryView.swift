@@ -16,6 +16,7 @@ struct LibraryView: View {
     /// nil while creating a new folder; set while renaming.
     @State private var folderToRename: Folder?
     @State private var folderToDelete: Folder?
+    @State private var lectureToRename: Lecture?
 
     var body: some View {
         NavigationStack {
@@ -37,7 +38,7 @@ struct LibraryView: View {
                         }
                         if !unfiledLectures.isEmpty {
                             Section {
-                                LectureRows(lectures: unfiledLectures)
+                                LectureRows(lectures: unfiledLectures) { lectureToRename = $0 }
                             } header: {
                                 if !folders.isEmpty { Text("Sem pasta") }
                             }
@@ -58,6 +59,7 @@ struct LibraryView: View {
             }
             .safeAreaInset(edge: .bottom) { RecordLectureButton(folder: nil) }
             .sheet(isPresented: $showSettings) { SettingsView() }
+            .renameLectureAlert($lectureToRename)
             .alert(folderToRename == nil ? "Nova pasta" : "Renomear pasta", isPresented: $isNamingFolder) {
                 TextField("Nome da disciplina", text: $folderName)
                 Button(folderToRename == nil ? "Criar" : "Salvar", action: saveFolderName)

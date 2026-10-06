@@ -23,7 +23,11 @@ enum TranscriptionError: LocalizedError {
 
 /// On-device transcription with Apple's SpeechAnalyzer (iOS 26+).
 enum LectureTranscriber {
-    static func transcribe(fileURL: URL, language: AppLanguage) async throws -> String {
+    /// Returns the recognized phrases with their time ranges.
+    /// `onProgress` receives the fraction of the recording processed so far (0...1).
+    static func transcribe(
+        fileURL: URL, language: AppLanguage, onProgress: @escaping @Sendable (Double) -> Void
+    ) async throws -> [TranscriptSegment] {
         // False on the Simulator and on devices without on-device speech models.
         guard SpeechTranscriber.isAvailable else { throw TranscriptionError.unavailable }
         guard let supportedLocale = await SpeechTranscriber.supportedLocale(equivalentTo: language.locale) else {
@@ -43,22 +47,27 @@ enum LectureTranscriber {
             try await request.downloadAndInstall()
         }
 
-        async let transcript = transcriber.results.reduce(into: "") { text, result in
-            let segment = String(result.text.characters).trimmingCharacters(in: .whitespaces)
-            guard !segment.isEmpty else { return }
-            text += text.isEmpty ? segment : " " + segment
+        let file = try AVAudioFile(forReading: fileURL)
+        let duration = Double(file.length) / file.processingFormat.sampleRate
+
+        async let segments = transcriber.results.reduce(into: [TranscriptSegment]()) { segments, result in
+            let text = String(result.text.characters).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { return }
+            segments.append(TranscriptSegment(
+                start: result.range.start.seconds, end: result.range.end.seconds, text: text
+            ))
+            if duration > 0 { onProgress(min(result.range.end.seconds / duration, 1)) }
         }
 
         let analyzer = SpeechAnalyzer(modules: [transcriber])
-        let file = try AVAudioFile(forReading: fileURL)
         if let lastSample = try await analyzer.analyzeSequence(from: file) {
             try await analyzer.finalizeAndFinish(through: lastSample)
         } else {
             await analyzer.cancelAndFinishNow()
         }
 
-        let text = try await transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { throw TranscriptionError.emptyTranscript }
-        return text
+        let result = try await segments
+        guard !result.isEmpty else { throw TranscriptionError.emptyTranscript }
+        return result
     }
 }
