@@ -10,6 +10,10 @@ struct FolderView: View {
         folder.lectures.sorted { $0.createdAt > $1.createdAt }
     }
 
+    private var languageBinding: Binding<AppLanguage?> {
+        Binding(get: { folder.language }, set: { folder.language = $0 })
+    }
+
     var body: some View {
         Group {
             if folder.lectures.isEmpty {
@@ -26,6 +30,17 @@ struct FolderView: View {
         }
         .navigationTitle(folder.name)
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu("Idioma das aulas", systemImage: "globe") {
+                    Picker("Idioma das aulas", selection: languageBinding) {
+                        Text("Igual aos Ajustes (\(AppLanguage.lecture.displayName))")
+                            .tag(AppLanguage?.none)
+                        ForEach(AppLanguage.allCases) { language in
+                            Text(language.displayName).tag(Optional(language))
+                        }
+                    }
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Revisar disciplina", systemImage: "rectangle.on.rectangle.angled") { isReviewing = true }
                     .disabled(Flashcard.cards(from: folder.lectures).isEmpty)

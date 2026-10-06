@@ -102,6 +102,11 @@ struct LibraryView: View {
             HStack {
                 Label(folder.name, systemImage: "folder.fill")
                 Spacer()
+                if let language = folder.language {
+                    Label(language.displayName, systemImage: "globe")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Text("\(folder.lectures.count)")
                     .foregroundStyle(.secondary)
             }

@@ -11,7 +11,12 @@ struct RecordingView: View {
     @State private var errorMessage: String?
     @State private var confirmDiscard = false
     /// Read once when the screen opens, so the whole recording uses one language.
-    private let language = AppLanguage.lecture
+    private let language: AppLanguage
+
+    init(folder: Folder?) {
+        self.folder = folder
+        language = folder?.language ?? .lecture
+    }
 
     var body: some View {
         VStack(spacing: 32) {
