@@ -39,6 +39,25 @@ struct RecordingView: View {
 
             Spacer()
 
+            Button {
+                recorder.markMoment()
+            } label: {
+                VStack(spacing: 4) {
+                    Label("Importante", systemImage: "star.fill")
+                        .font(.title3.bold())
+                    Text(markCaption)
+                        .font(.caption)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.yellow)
+            .foregroundStyle(.black)
+            .controlSize(.large)
+            .disabled(!recorder.isRecording || recorder.isPaused)
+            .sensoryFeedback(.impact, trigger: recorder.marks.count)
+
             HStack(spacing: 16) {
                 Button("Descartar", systemImage: "trash", role: .destructive) {
                     confirmDiscard = true
@@ -67,11 +86,17 @@ struct RecordingView: View {
         }
         .padding()
         .task {
+            RecordingCommands.shared.isRecording = true
+            RecordingCommands.shared.markMoment = { [recorder] in recorder.markMoment() }
             do {
-                try await recorder.start()
+                try await recorder.start(folderName: folder?.name ?? "Sem pasta")
             } catch {
                 errorMessage = error.localizedDescription
             }
+        }
+        .onDisappear {
+            RecordingCommands.shared.isRecording = false
+            RecordingCommands.shared.markMoment = nil
         }
         .confirmationDialog("Descartar esta gravação?", isPresented: $confirmDiscard, titleVisibility: .visible) {
             Button("Descartar", role: .destructive) {
@@ -89,15 +114,24 @@ struct RecordingView: View {
         }
     }
 
+    private var markCaption: String {
+        switch recorder.marks.count {
+        case 0: "Toque quando o professor disser algo que cai na prova"
+        case 1: "1 momento marcado"
+        case let count: "\(count) momentos marcados"
+        }
+    }
+
     private func finish() {
+        let marks = recorder.marks
         guard let result = recorder.stop() else { return }
         let lecture = Lecture(
             audioFileName: result.url.lastPathComponent, duration: result.duration, language: language,
-            folder: folder
+            folder: folder, highlights: marks
         )
         context.insert(lecture)
         try? context.save()
-        processor.process(lecture, in: context)
+        processor.process(lecture, in: context, summarize: false)
         dismiss()
     }
 }

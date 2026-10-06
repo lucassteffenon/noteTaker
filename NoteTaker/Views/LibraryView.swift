@@ -1,7 +1,8 @@
 import SwiftData
 import SwiftUI
 
-/// Home screen: folders first, then lectures that aren't in any folder.
+/// Home screen: folders first, then lectures that aren't in any folder. Searching replaces the
+/// list with matches from every lecture. Also opens the recorder when `RecordLectureIntent` runs.
 struct LibraryView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \Folder.name) private var folders: [Folder]
@@ -17,11 +18,17 @@ struct LibraryView: View {
     @State private var folderToRename: Folder?
     @State private var folderToDelete: Folder?
     @State private var lectureToRename: Lecture?
+    @State private var searchText = ""
+    /// Recording started from Siri, the Action button or the control, outside any folder.
+    @State private var isRecordingFromShortcut = false
+    private let commands = RecordingCommands.shared
 
     var body: some View {
         NavigationStack {
             Group {
-                if folders.isEmpty && unfiledLectures.isEmpty {
+                if !searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+                    LectureSearchResults(query: searchText.trimmingCharacters(in: .whitespaces))
+                } else if folders.isEmpty && unfiledLectures.isEmpty {
                     ContentUnavailableView(
                         "Nenhuma aula gravada",
                         systemImage: "mic",
@@ -47,6 +54,7 @@ struct LibraryView: View {
                 }
             }
             .navigationTitle("Aulas")
+            .searchable(text: $searchText, prompt: "Buscar nas aulas")
             .navigationDestination(for: Folder.self) { FolderView(folder: $0) }
             .navigationDestination(for: Lecture.self) { LectureDetailView(lecture: $0) }
             .toolbar {
@@ -57,7 +65,15 @@ struct LibraryView: View {
                     Button("Ajustes", systemImage: "gearshape") { showSettings = true }
                 }
             }
-            .safeAreaInset(edge: .bottom) { RecordLectureButton(folder: nil) }
+            .safeAreaInset(edge: .bottom) {
+                if searchText.isEmpty { RecordLectureButton(folder: nil) }
+            }
+            .fullScreenCover(isPresented: $isRecordingFromShortcut) { RecordingView(folder: nil) }
+            .onChange(of: commands.startRequested, initial: true) { _, requested in
+                guard requested else { return }
+                commands.startRequested = false
+                if !commands.isRecording { isRecordingFromShortcut = true }
+            }
             .sheet(isPresented: $showSettings) { SettingsView() }
             .renameLectureAlert($lectureToRename)
             .alert(folderToRename == nil ? "Nova pasta" : "Renomear pasta", isPresented: $isNamingFolder) {

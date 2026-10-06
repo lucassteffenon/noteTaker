@@ -17,19 +17,24 @@ enum RecorderError: LocalizedError {
 
 /// Records the lecture to an AAC file. Keeps recording with the screen locked
 /// (UIBackgroundModes = audio) and resumes after interruptions such as calls.
+/// Mirrors its state in the recording Live Activity.
 @MainActor
 @Observable
 final class AudioRecorder {
     private(set) var isRecording = false
     private(set) var isPaused = false
+    /// Seconds into the recording the student marked as important.
+    private(set) var marks: [TimeInterval] = []
 
     private var recorder: AVAudioRecorder?
     private var interruptionObserver: NSObjectProtocol?
+    private let activity = RecordingActivity()
 
     /// Not observable; read it from a `TimelineView`.
     var currentTime: TimeInterval { recorder?.currentTime ?? 0 }
 
-    func start() async throws {
+    /// `folderName` is shown on the Live Activity.
+    func start(folderName: String) async throws {
         guard await AVAudioApplication.requestRecordPermission() else {
             throw RecorderError.permissionDenied
         }
@@ -51,17 +56,27 @@ final class AudioRecorder {
         self.recorder = recorder
         isRecording = true
         isPaused = false
+        marks = []
         observeInterruptions(session)
+        activity.start(folderName: folderName)
     }
 
     func pause() {
         recorder?.pause()
         isPaused = true
+        updateActivity()
     }
 
     func resume() {
         recorder?.record()
         isPaused = false
+        updateActivity()
+    }
+
+    func markMoment() {
+        guard isRecording else { return }
+        marks.append(currentTime)
+        updateActivity()
     }
 
     /// Stops recording and returns the file and its duration.
@@ -80,7 +95,12 @@ final class AudioRecorder {
         tearDown()
     }
 
+    private func updateActivity() {
+        activity.update(elapsed: currentTime, isPaused: isPaused, markCount: marks.count)
+    }
+
     private func tearDown() {
+        activity.end()
         recorder = nil
         isRecording = false
         isPaused = false
@@ -102,6 +122,7 @@ final class AudioRecorder {
                 guard let self, self.isRecording, !self.isPaused else { return }
                 try? AVAudioSession.sharedInstance().setActive(true)
                 self.recorder?.record()
+                self.updateActivity()
             }
         }
     }

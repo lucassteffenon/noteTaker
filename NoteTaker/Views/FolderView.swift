@@ -4,6 +4,7 @@ import SwiftUI
 struct FolderView: View {
     let folder: Folder
     @State private var lectureToRename: Lecture?
+    @State private var isReviewing = false
 
     private var lectures: [Lecture] {
         folder.lectures.sorted { $0.createdAt > $1.createdAt }
@@ -24,6 +25,15 @@ struct FolderView: View {
             }
         }
         .navigationTitle(folder.name)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Revisar disciplina", systemImage: "rectangle.on.rectangle.angled") { isReviewing = true }
+                    .disabled(Flashcard.cards(from: folder.lectures).isEmpty)
+            }
+        }
+        .sheet(isPresented: $isReviewing) {
+            FlashcardsView(title: folder.name, cards: Flashcard.cards(from: lectures), showsLecture: true)
+        }
         .safeAreaInset(edge: .bottom) { RecordLectureButton(folder: folder) }
         .renameLectureAlert($lectureToRename)
     }

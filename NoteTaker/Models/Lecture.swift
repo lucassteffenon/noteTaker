@@ -4,7 +4,7 @@ import SwiftData
 @Model
 final class Lecture {
     enum Status: String {
-        case recorded, transcribing, summarizing, done, failed
+        case recorded, transcribing, transcribed, summarizing, done, failed
     }
 
     var id: UUID
@@ -26,10 +26,12 @@ final class Lecture {
     var folder: Folder?
     /// JSON-encoded `[TranscriptSegment]`. nil for lectures transcribed before timing was stored.
     var segmentsData: Data?
+    /// Seconds into the recording the student marked as important while recording.
+    var highlights: [TimeInterval] = []
 
     init(
         audioFileName: String, duration: TimeInterval, language: AppLanguage,
-        folder: Folder? = nil, createdAt: Date = .now
+        folder: Folder? = nil, highlights: [TimeInterval] = [], createdAt: Date = .now
     ) {
         self.id = UUID()
         self.folder = folder
@@ -39,6 +41,7 @@ final class Lecture {
         self.audioFileName = audioFileName
         self.statusRaw = Status.recorded.rawValue
         self.languageRaw = language.rawValue
+        self.highlights = highlights
     }
 
     var language: AppLanguage {

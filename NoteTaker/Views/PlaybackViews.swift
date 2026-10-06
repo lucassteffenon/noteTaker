@@ -4,6 +4,8 @@ import SwiftUI
 /// The phrase being played is highlighted.
 struct TranscriptView: View {
     let segments: [TranscriptSegment]
+    /// Moments marked while recording; the phrases they point at get a star.
+    var highlights: [TimeInterval] = []
     let player: LecturePlayer?
 
     var body: some View {
@@ -13,6 +15,7 @@ struct TranscriptView: View {
             LazyVStack(alignment: .leading, spacing: 4) {
                 ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
                     let isCurrent = isPlaying && segment.start <= now && now < segment.end
+                    let isHighlighted = segment.isHighlighted(by: highlights)
                     Button {
                         player?.play(from: segment.start)
                     } label: {
@@ -24,11 +27,17 @@ struct TranscriptView: View {
                             Text(segment.text)
                                 .multilineTextAlignment(.leading)
                                 .frame(maxWidth: .infinity, alignment: .leading)
+                            if isHighlighted {
+                                Image(systemName: "star.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.yellow)
+                            }
                         }
                         .padding(.vertical, 6)
                         .padding(.horizontal, 8)
                         .background(
-                            isCurrent ? Color.accentColor.opacity(0.15) : .clear,
+                            isCurrent ? Color.accentColor.opacity(0.15)
+                                : isHighlighted ? Color.yellow.opacity(0.12) : .clear,
                             in: RoundedRectangle(cornerRadius: 8)
                         )
                         .contentShape(Rectangle())

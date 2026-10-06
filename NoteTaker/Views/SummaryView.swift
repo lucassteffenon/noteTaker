@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// The AI summary of a lecture. Key points and concepts with a known position in the
-/// recording show a "▶ 12:34" button that plays the lecture from there.
+/// recording show a "▶ 12:34" button that plays the lecture from there. Key points from moments
+/// the student marked get a star; review questions reveal their answer.
 struct SummaryView: View {
     let summary: LectureSummary
     /// nil when the recording can't be played (e.g. the audio file is missing).
@@ -17,7 +18,13 @@ struct SummaryView: View {
             section("Pontos importantes", systemImage: "star") {
                 ForEach(summary.keyPoints, id: \.self) { point in
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text("•")
+                        if point.important {
+                            Image(systemName: "star.fill")
+                                .foregroundStyle(.yellow)
+                                .accessibilityLabel("Marcado como importante")
+                        } else {
+                            Text("•")
+                        }
                         VStack(alignment: .leading, spacing: 6) {
                             Text(point.text)
                             playButton(at: point.startSeconds.playbackTime)
@@ -46,7 +53,22 @@ struct SummaryView: View {
 
             if !summary.reviewQuestions.isEmpty {
                 section("Perguntas para revisar", systemImage: "questionmark.bubble") {
-                    bullets(summary.reviewQuestions)
+                    ForEach(summary.reviewQuestions, id: \.self) { item in
+                        if let answer = item.answer {
+                            DisclosureGroup {
+                                Text(answer)
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .textSelection(.enabled)
+                            } label: {
+                                Text(item.question)
+                                    .multilineTextAlignment(.leading)
+                            }
+                            .tint(.primary)
+                        } else {
+                            bullets([item.question])
+                        }
+                    }
                 }
             }
         }

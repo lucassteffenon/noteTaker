@@ -51,10 +51,16 @@ enum SummaryPrompt {
         - keyPoints: os pontos mais importantes, cada um autossuficiente para revisão.
         - concepts: termos, definições, fórmulas ou teorias apresentados, com uma explicação clara.
         - assignments: provas, trabalhos, leituras, prazos e avisos mencionados. Lista vazia se não houver.
-        - reviewQuestions: perguntas para o estudante testar se entendeu a matéria.
+        - reviewQuestions: perguntas para o estudante testar se entendeu a matéria, cada uma \
+        com uma resposta curta e correta segundo a aula (serão usadas como flashcards).
 
         Em keyPoints e concepts, startSeconds é o segundo da marcação do trecho em que aquele \
         assunto começa a ser explicado. Use -1 se a transcrição não tiver marcações.
+
+        Trechos com ⭐ depois da marcação foram marcados pelo estudante durante a aula como \
+        importantes (por exemplo, quando o professor disse que o assunto cai na prova). Garanta \
+        que o conteúdo deles apareça em keyPoints, de preferência no início, com important = true. \
+        Nos demais pontos, important = false.
         """
     }
 
@@ -63,8 +69,12 @@ enum SummaryPrompt {
         let strings: [String: Any] = ["type": "array", "items": ["type": "string"]]
         let keyPoint: [String: Any] = [
             "type": "object",
-            "properties": ["text": ["type": "string"], "startSeconds": ["type": "number"]],
-            "required": ["text", "startSeconds"],
+            "properties": [
+                "text": ["type": "string"],
+                "startSeconds": ["type": "number"],
+                "important": ["type": "boolean"],
+            ],
+            "required": ["text", "startSeconds", "important"],
             "additionalProperties": false,
         ]
         let concept: [String: Any] = [
@@ -77,6 +87,12 @@ enum SummaryPrompt {
             "required": ["term", "explanation", "startSeconds"],
             "additionalProperties": false,
         ]
+        let question: [String: Any] = [
+            "type": "object",
+            "properties": ["question": ["type": "string"], "answer": ["type": "string"]],
+            "required": ["question", "answer"],
+            "additionalProperties": false,
+        ]
         return [
             "type": "object",
             "properties": [
@@ -85,7 +101,7 @@ enum SummaryPrompt {
                 "keyPoints": ["type": "array", "items": keyPoint],
                 "concepts": ["type": "array", "items": concept],
                 "assignments": strings,
-                "reviewQuestions": strings,
+                "reviewQuestions": ["type": "array", "items": question],
             ],
             "required": ["title", "overview", "keyPoints", "concepts", "assignments", "reviewQuestions"],
             "additionalProperties": false,
@@ -97,22 +113,29 @@ enum SummaryPrompt {
     }
 
     /// The transcript as sent to the AI: phrases merged into ~30 s blocks, each prefixed with
-    /// its start second so the summary can point back into the recording. Falls back to the
-    /// plain text for lectures transcribed before segments were stored.
-    static func timestampedTranscript(_ segments: [TranscriptSegment], fallback: String) -> String {
+    /// its start second so the summary can point back into the recording, and with ⭐ when it
+    /// contains a phrase the student marked. Falls back to the plain text for lectures
+    /// transcribed before segments were stored.
+    static func timestampedTranscript(
+        _ segments: [TranscriptSegment], highlights: [TimeInterval] = [], fallback: String
+    ) -> String {
         guard !segments.isEmpty else { return fallback }
         var blocks: [String] = []
         var blockStart: TimeInterval = 0
         var blockText = ""
+        var blockMarked = false
+        func closeBlock() {
+            blocks.append("[\(Int(blockStart))s]\(blockMarked ? " ⭐" : "") \(blockText)")
+            blockText = ""
+            blockMarked = false
+        }
         for segment in segments {
             if blockText.isEmpty { blockStart = segment.start }
             blockText += blockText.isEmpty ? segment.text : " " + segment.text
-            if segment.end - blockStart >= 30 {
-                blocks.append("[\(Int(blockStart))s] \(blockText)")
-                blockText = ""
-            }
+            blockMarked = blockMarked || segment.isHighlighted(by: highlights)
+            if segment.end - blockStart >= 30 { closeBlock() }
         }
-        if !blockText.isEmpty { blocks.append("[\(Int(blockStart))s] \(blockText)") }
+        if !blockText.isEmpty { closeBlock() }
         return blocks.joined(separator: "\n")
     }
 

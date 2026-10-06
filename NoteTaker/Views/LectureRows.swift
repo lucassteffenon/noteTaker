@@ -95,6 +95,7 @@ struct LectureStatusBadge: View {
         let (text, symbol, color): (String, String, Color) = switch status {
         case .recorded: ("Gravada", "waveform", .secondary)
         case .transcribing: ("Transcrevendo", "text.bubble", .secondary)
+        case .transcribed: ("Transcrita", "text.bubble", .secondary)
         case .summarizing: ("Resumindo", "sparkles", .secondary)
         case .done: ("Pronta", "checkmark.circle.fill", .green)
         case .failed: ("Erro", "exclamationmark.triangle.fill", .orange)

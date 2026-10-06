@@ -4,6 +4,7 @@ import SwiftData
 
 /// Runs the pipeline for a recorded lecture: on-device transcription, then the AI summary.
 /// Each step is persisted, so a retry after a failed summary skips the transcription.
+/// The summary costs money, so after recording it only runs when the user asks for it.
 /// The job keeps running in the background through `ContinuedProcessing`.
 @MainActor
 @Observable
@@ -19,7 +20,7 @@ final class LectureProcessor {
         inFlight.contains(lecture.id)
     }
 
-    func process(_ lecture: Lecture, in context: ModelContext) {
+    func process(_ lecture: Lecture, in context: ModelContext, summarize: Bool) {
         let id = lecture.id
         guard !inFlight.contains(id) else { return }
         inFlight.insert(id)
@@ -46,6 +47,12 @@ final class LectureProcessor {
                     try? context.save()
                 }
                 progress.completedUnitCount = Self.transcriptionUnits
+                guard summarize else {
+                    lecture.status = .transcribed
+                    progress.completedUnitCount = 100
+                    try? context.save()
+                    return
+                }
 
                 let provider = SummaryProvider.selected
                 guard let apiKey = KeychainStore.apiKey(for: provider) else {
@@ -56,7 +63,7 @@ final class LectureProcessor {
                 try? context.save()
 
                 let transcript = SummaryPrompt.timestampedTranscript(
-                    lecture.segments, fallback: lecture.transcript ?? ""
+                    lecture.segments, highlights: lecture.highlights, fallback: lecture.transcript ?? ""
                 )
                 let summary = try await provider.makeSummarizer(apiKey: apiKey, model: provider.selectedModel)
                     .summarize(transcript: transcript, language: AppLanguage.summary)
@@ -74,7 +81,7 @@ final class LectureProcessor {
         }
 
         ContinuedProcessing.start(
-            title: "Processando aula", subtitle: lecture.displayTitle, progress: progress, work: work
+            title: summarize ? "Processando aula" : "Transcrevendo aula", subtitle: lecture.displayTitle, progress: progress, work: work
         )
     }
 }
