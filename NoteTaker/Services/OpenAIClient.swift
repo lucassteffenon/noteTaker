@@ -1,34 +1,36 @@
 import Foundation
 
 /// OpenAI Responses API with structured outputs (`text.format` = strict JSON schema).
-struct OpenAISummarizer: Summarizer {
+struct OpenAIClient: AIClient {
     let apiKey: String
+    let model: String
+    var provider: SummaryProvider { .openAI }
 
     private static let endpoint = URL(string: "https://api.openai.com/v1/responses")!
-    let model: String
 
-    func summarize(transcript: String, language: AppLanguage) async throws -> LectureSummary {
+    func respond(to request: AIRequest) async throws -> String {
+        // OpenAI caches long prompt prefixes on its own, so the context goes right after the
+        // instructions and before the conversation.
+        let instructions = [request.system, request.context].compactMap(\.self).joined(separator: "\n\n")
         let body: [String: Any] = [
             "model": model,
-            "input": [
-                ["role": "system", "content": SummaryPrompt.system(for: language)],
-                ["role": "user", "content": SummaryPrompt.userMessage(for: transcript)],
-            ],
+            "input": [["role": "system", "content": instructions]]
+                + request.turns.map { ["role": $0.role.rawValue, "content": $0.text] },
             "text": [
                 "format": [
                     "type": "json_schema",
-                    "name": "lecture_summary",
+                    "name": request.schemaName,
                     "strict": true,
-                    "schema": SummaryPrompt.schema,
+                    "schema": request.schema,
                 ],
             ],
         ]
         let headers = ["authorization": "Bearer \(apiKey)"]
-        let data = try await SummaryHTTP.post(Self.endpoint, headers: headers, body: body, provider: .openAI)
+        let data = try await AIHTTP.post(Self.endpoint, headers: headers, body: body, provider: .openAI)
 
         let response = try JSONDecoder().decode(ResponseBody.self, from: data)
         if response.status == "incomplete" {
-            throw SummarizerError.truncated
+            throw AIError.truncated
         }
 
         // Reasoning items can precede the message, so find the message instead of taking output[0].
@@ -36,12 +38,12 @@ struct OpenAISummarizer: Summarizer {
             .filter { $0.type == "message" }
             .flatMap { $0.content ?? [] }
         if content.contains(where: { $0.type == "refusal" }) {
-            throw SummarizerError.refused(.openAI)
+            throw AIError.refused(.openAI)
         }
         guard let json = content.first(where: { $0.type == "output_text" })?.text else {
-            throw SummarizerError.invalidResponse(.openAI)
+            throw AIError.invalidResponse(.openAI)
         }
-        return try SummaryPrompt.decode(json, from: .openAI)
+        return json
     }
 }
 

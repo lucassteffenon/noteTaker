@@ -30,6 +30,9 @@ final class AudioRecorder {
     private var interruptionObserver: NSObjectProtocol?
     private let activity = RecordingActivity()
 
+    /// The recording's file name in `Storage.recordingsDirectory`, once started.
+    var fileName: String? { recorder?.url.lastPathComponent }
+
     /// Not observable; read it from a `TimelineView`.
     var currentTime: TimeInterval { recorder?.currentTime ?? 0 }
 
@@ -43,7 +46,9 @@ final class AudioRecorder {
         try session.setCategory(.record, mode: .default)
         try session.setActive(true)
 
-        // Mono 16 kHz AAC is plenty for speech: about 30 MB for a two-hour lecture.
+        // Mono 16 kHz AAC is plenty for speech: about 30 MB for a two-hour lecture. The file is
+        // ADTS (.aac, see `Storage.newRecordingURL`): unlike .m4a, which is only readable once
+        // `stop()` writes its index, it stays playable if the app is killed mid-recording.
         let settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatMPEG4AAC,
             AVSampleRateKey: 16_000,

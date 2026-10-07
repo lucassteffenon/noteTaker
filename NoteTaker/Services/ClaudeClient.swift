@@ -1,26 +1,30 @@
 import Foundation
 
 /// Claude Messages API with structured outputs. There is no official Swift SDK.
-struct ClaudeSummarizer: Summarizer {
+struct ClaudeClient: AIClient {
     let apiKey: String
     let model: String
+    var provider: SummaryProvider { .claude }
 
     private static let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
 
     /// Haiku 4.5 rejects `effort` and server-side fallbacks; Opus 5.5 and Sonnet 5.5 accept both.
     private var supportsEffortAndFallbacks: Bool { model != "claude-haiku-4-5" }
 
-    func summarize(transcript: String, language: AppLanguage) async throws -> LectureSummary {
+    func respond(to request: AIRequest) async throws -> String {
         var outputConfig: [String: Any] = [
-            "format": ["type": "json_schema", "schema": SummaryPrompt.schema],
+            "format": ["type": "json_schema", "schema": request.schema],
         ]
+        var system: [[String: Any]] = [["type": "text", "text": request.system]]
+        if let context = request.context {
+            // Cached, so follow-up questions about the same lecture don't pay for it in full again.
+            system.append(["type": "text", "text": context, "cache_control": ["type": "ephemeral"]])
+        }
         var body: [String: Any] = [
             "model": model,
-            "max_tokens": 16_000,
-            "system": SummaryPrompt.system(for: language),
-            "messages": [
-                ["role": "user", "content": SummaryPrompt.userMessage(for: transcript)],
-            ],
+            "max_tokens": request.maxTokens,
+            "system": system,
+            "messages": request.turns.map { ["role": $0.role.rawValue, "content": $0.text] },
         ]
         var headers = [
             "x-api-key": apiKey,
@@ -33,20 +37,20 @@ struct ClaudeSummarizer: Summarizer {
             headers["anthropic-beta"] = "server-side-fallback-2026-07-01"
         }
         body["output_config"] = outputConfig
-        let data = try await SummaryHTTP.post(Self.endpoint, headers: headers, body: body, provider: .claude)
+        let data = try await AIHTTP.post(Self.endpoint, headers: headers, body: body, provider: .claude)
 
         let message = try JSONDecoder().decode(MessageBody.self, from: data)
         switch message.stopReason {
-        case "refusal": throw SummarizerError.refused(.claude)
-        case "max_tokens": throw SummarizerError.truncated
+        case "refusal": throw AIError.refused(.claude)
+        case "max_tokens": throw AIError.truncated
         default: break
         }
 
         // Structured outputs put the JSON in the text block; thinking blocks are skipped.
         guard let json = message.content.first(where: { $0.type == "text" })?.text else {
-            throw SummarizerError.invalidResponse(.claude)
+            throw AIError.invalidResponse(.claude)
         }
-        return try SummaryPrompt.decode(json, from: .claude)
+        return json
     }
 }
 

@@ -1,34 +1,5 @@
 import Foundation
 
-/// Turns a lecture transcript into a `LectureSummary`. One implementation per `SummaryProvider`;
-/// each calls its provider's HTTP API directly and asks for JSON matching `SummaryPrompt.schema`.
-protocol Summarizer {
-    func summarize(transcript: String, language: AppLanguage) async throws -> LectureSummary
-}
-
-enum SummarizerError: LocalizedError {
-    case missingAPIKey(SummaryProvider)
-    case api(SummaryProvider, status: Int, message: String)
-    case refused(SummaryProvider)
-    case truncated
-    case invalidResponse(SummaryProvider)
-
-    var errorDescription: String? {
-        switch self {
-        case .missingAPIKey(let provider):
-            "Configure sua chave da API do \(provider.displayName) nos Ajustes do app."
-        case .api(let provider, let status, let message):
-            "Erro da API do \(provider.displayName) (\(status)): \(message)"
-        case .refused(let provider):
-            "O \(provider.displayName) recusou gerar o resumo desta aula."
-        case .truncated:
-            "O resumo ficou longo demais e foi cortado. Tente novamente."
-        case .invalidResponse(let provider):
-            "Resposta inesperada da API do \(provider.displayName)."
-        }
-    }
-}
-
 /// Instructions and output schema shared by every provider.
 enum SummaryPrompt {
     /// `language` is the language the summary is written in, which may differ from the lecture's.
@@ -108,8 +79,13 @@ enum SummaryPrompt {
         ]
     }()
 
-    static func userMessage(for transcript: String) -> String {
-        "<transcricao>\n\(transcript)\n</transcricao>"
+    static func request(transcript: String, language: AppLanguage) -> AIRequest {
+        AIRequest(
+            system: system(for: language),
+            turns: [AITurn(role: .user, text: "<transcricao>\n\(transcript)\n</transcricao>")],
+            schemaName: "lecture_summary",
+            schema: schema
+        )
     }
 
     /// The transcript as sent to the AI: phrases merged into ~30 s blocks, each prefixed with
@@ -137,47 +113,5 @@ enum SummaryPrompt {
         }
         if !blockText.isEmpty { closeBlock() }
         return blocks.joined(separator: "\n")
-    }
-
-    static func decode(_ json: String, from provider: SummaryProvider) throws -> LectureSummary {
-        do {
-            return try JSONDecoder().decode(LectureSummary.self, from: Data(json.utf8))
-        } catch {
-            throw SummarizerError.invalidResponse(provider)
-        }
-    }
-}
-
-/// HTTP plumbing shared by the summarizers.
-enum SummaryHTTP {
-    static func post(
-        _ url: URL, headers: [String: String], body: [String: Any], provider: SummaryProvider
-    ) async throws -> Data {
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 600
-        request.setValue("application/json", forHTTPHeaderField: "content-type")
-        for (field, value) in headers {
-            request.setValue(value, forHTTPHeaderField: field)
-        }
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw SummarizerError.invalidResponse(provider) }
-        guard http.statusCode == 200 else {
-            // Anthropic, OpenAI and Gemini all report errors as {"error": {"message": ...}}.
-            let message = (try? JSONDecoder().decode(ErrorBody.self, from: data))?.error.message
-                ?? HTTPURLResponse.localizedString(forStatusCode: http.statusCode)
-            throw SummarizerError.api(provider, status: http.statusCode, message: message)
-        }
-        return data
-    }
-
-    private struct ErrorBody: Decodable {
-        struct Detail: Decodable {
-            let message: String
-        }
-
-        let error: Detail
     }
 }

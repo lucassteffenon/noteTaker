@@ -1,7 +1,7 @@
 import Foundation
 
 /// Languages offered for lectures (transcription) and summaries. Chosen in Ajustes.
-enum AppLanguage: String, CaseIterable, Identifiable {
+enum AppLanguage: String, CaseIterable, Identifiable, Codable {
     case portuguese = "pt-BR"
     case english = "en-US"
 

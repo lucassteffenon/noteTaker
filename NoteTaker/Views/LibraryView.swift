@@ -5,6 +5,8 @@ import SwiftUI
 /// list with matches from every lecture. Also opens the recorder when `RecordLectureIntent` runs.
 struct LibraryView: View {
     @Environment(\.modelContext) private var context
+    @Environment(LectureProcessor.self) private var processor
+    @State private var session = RecordingSession.shared
     @Query(sort: \Folder.name) private var folders: [Folder]
     @Query(
         filter: #Predicate<Lecture> { $0.folder == nil },
@@ -19,8 +21,6 @@ struct LibraryView: View {
     @State private var folderToDelete: Folder?
     @State private var lectureToRename: Lecture?
     @State private var searchText = ""
-    /// Recording started from Siri, the Action button or the control, outside any folder.
-    @State private var isRecordingFromShortcut = false
     private let commands = RecordingCommands.shared
 
     var body: some View {
@@ -66,13 +66,31 @@ struct LibraryView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                if searchText.isEmpty { RecordLectureButton(folder: nil) }
+                if searchText.isEmpty {
+                    // Re-checked every minute so the button follows the class schedule.
+                    TimelineView(.everyMinute) { timeline in
+                        RecordLectureButton(
+                            folder: Folder.inClass(at: timeline.date, among: folders), showsFolderName: true
+                        )
+                    }
+                }
             }
-            .fullScreenCover(isPresented: $isRecordingFromShortcut) { RecordingView(folder: nil) }
             .onChange(of: commands.startRequested, initial: true) { _, requested in
+                // Siri, the Action button or the control: filed by the class schedule.
                 guard requested else { return }
                 commands.startRequested = false
-                if !commands.isRecording { isRecordingFromShortcut = true }
+                session.begin(folder: Folder.inClass(at: .now, among: folders))
+            }
+            .task { await session.recoverInterruptedRecordings(in: context, processor: processor) }
+            .alert(
+                "Gravação recuperada",
+                isPresented: Binding(get: { session.recoveredCount > 0 }, set: { if !$0 { session.recoveredCount = 0 } })
+            ) {
+                Button("OK") {}
+            } message: {
+                Text(session.recoveredCount == 1
+                    ? "Uma gravação foi interrompida antes de você tocar em Concluir (o app foi fechado). O áudio foi salvo como uma aula e está sendo transcrito."
+                    : "\(session.recoveredCount) gravações foram interrompidas antes de você tocar em Concluir (o app foi fechado). O áudio foi salvo como aulas e está sendo transcrito.")
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
             .renameLectureAlert($lectureToRename)
@@ -95,6 +113,9 @@ struct LibraryView: View {
                 Text("As aulas desta pasta não serão apagadas. Elas vão para Sem pasta.")
             }
         }
+        // Presented from the root so it covers any screen, and comes back if the system
+        // rebuilds the UI while a recording is running in the background.
+        .fullScreenCover(item: $session.current) { RecordingView(recording: $0) }
     }
 
     private func folderRow(_ folder: Folder) -> some View {

@@ -28,6 +28,8 @@ final class Lecture {
     var segmentsData: Data?
     /// Seconds into the recording the student marked as important while recording.
     var highlights: [TimeInterval] = []
+    /// JSON-encoded `[ChatMessage]`: questions asked about this lecture and their answers.
+    var chatData: Data?
 
     init(
         audioFileName: String, duration: TimeInterval, language: AppLanguage,
@@ -63,6 +65,11 @@ final class Lecture {
         set { segmentsData = newValue.isEmpty ? nil : try? JSONEncoder().encode(newValue) }
     }
 
+    var chat: [ChatMessage] {
+        get { chatData.flatMap { try? JSONDecoder().decode([ChatMessage].self, from: $0) } ?? [] }
+        set { chatData = newValue.isEmpty ? nil : try? JSONEncoder().encode(newValue) }
+    }
+
     var audioURL: URL {
         Storage.recordingsDirectory.appending(path: audioFileName)
     }
@@ -79,7 +86,8 @@ enum Storage {
         return url
     }
 
+    /// ADTS AAC: survives the app being killed mid-recording. Older lectures use .m4a.
     static func newRecordingURL() -> URL {
-        recordingsDirectory.appending(path: "\(UUID().uuidString).m4a")
+        recordingsDirectory.appending(path: "\(UUID().uuidString).aac")
     }
 }

@@ -1,22 +1,19 @@
 import SwiftData
 import SwiftUI
 
+/// The recording screen for `RecordingSession.shared.current`. The recorder lives in the
+/// session, so if the system rebuilds the UI this screen reappears and picks it up again.
 struct RecordingView: View {
-    /// Folder the new lecture is filed in; nil for "Sem pasta".
-    let folder: Folder?
-    @Environment(\.dismiss) private var dismiss
+    let recording: ActiveRecording
     @Environment(\.modelContext) private var context
     @Environment(LectureProcessor.self) private var processor
-    @State private var recorder = AudioRecorder()
     @State private var errorMessage: String?
     @State private var confirmDiscard = false
-    /// Read once when the screen opens, so the whole recording uses one language.
-    private let language: AppLanguage
 
-    init(folder: Folder?) {
-        self.folder = folder
-        language = folder?.language ?? .lecture
-    }
+    private var recorder: AudioRecorder { recording.recorder }
+    private var folder: Folder? { recording.folder }
+    private var language: AppLanguage { recording.language }
+    private var session: RecordingSession { .shared }
 
     var body: some View {
         VStack(spacing: 32) {
@@ -45,7 +42,7 @@ struct RecordingView: View {
             Spacer()
 
             Button {
-                recorder.markMoment()
+                session.markMoment()
             } label: {
                 VStack(spacing: 4) {
                     Label("Importante", systemImage: "star.fill")
@@ -91,29 +88,23 @@ struct RecordingView: View {
         }
         .padding()
         .task {
-            RecordingCommands.shared.isRecording = true
-            RecordingCommands.shared.markMoment = { [recorder] in recorder.markMoment() }
             do {
-                try await recorder.start(folderName: folder?.name ?? "Sem pasta")
+                try await session.startRecorder()
             } catch {
                 errorMessage = error.localizedDescription
             }
         }
-        .onDisappear {
-            RecordingCommands.shared.isRecording = false
-            RecordingCommands.shared.markMoment = nil
-        }
         .confirmationDialog("Descartar esta gravação?", isPresented: $confirmDiscard, titleVisibility: .visible) {
             Button("Descartar", role: .destructive) {
                 recorder.discard()
-                dismiss()
+                session.end()
             }
         }
         .alert(
             "Não foi possível gravar",
             isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })
         ) {
-            Button("OK") { dismiss() }
+            Button("OK") { session.end() }
         } message: {
             Text(errorMessage ?? "")
         }
@@ -137,6 +128,6 @@ struct RecordingView: View {
         context.insert(lecture)
         try? context.save()
         processor.process(lecture, in: context, summarize: false)
-        dismiss()
+        session.end()
     }
 }

@@ -48,19 +48,27 @@ struct LectureRows: View {
 /// The "Gravar aula" button pinned to the bottom of a list. New lectures go into `folder`.
 struct RecordLectureButton: View {
     let folder: Folder?
-    @State private var isRecording = false
+    /// Shows the folder's name, when it was picked from the class schedule.
+    var showsFolderName = false
 
     var body: some View {
         Button {
-            isRecording = true
+            // The folder is fixed now: a class ending mid-recording doesn't move the lecture.
+            RecordingSession.shared.begin(folder: folder)
         } label: {
-            Label("Gravar aula", systemImage: "mic.fill")
-                .frame(maxWidth: .infinity)
+            Group {
+                if showsFolderName, let folder {
+                    Label("Gravar aula de \(folder.name)", systemImage: "mic.fill")
+                } else {
+                    Label("Gravar aula", systemImage: "mic.fill")
+                }
+            }
+            .lineLimit(1)
+            .frame(maxWidth: .infinity)
         }
         .buttonStyle(.borderedProminent)
         .controlSize(.large)
         .padding()
-        .fullScreenCover(isPresented: $isRecording) { RecordingView(folder: folder) }
     }
 }
 

@@ -65,14 +65,6 @@ enum SummaryProvider: String, CaseIterable, Identifiable {
         let id = UserDefaults.standard.string(forKey: modelDefaultsKey)
         return models.first { $0.id == id } ?? models[0]
     }
-
-    func makeSummarizer(apiKey: String, model: SummaryModel) -> any Summarizer {
-        switch self {
-        case .claude: ClaudeSummarizer(apiKey: apiKey, model: model.id)
-        case .openAI: OpenAISummarizer(apiKey: apiKey, model: model.id)
-        case .gemini: GeminiSummarizer(apiKey: apiKey, model: model.id)
-        }
-    }
 }
 
 struct SummaryModel: Identifiable, Hashable {

@@ -54,10 +54,7 @@ final class LectureProcessor {
                     return
                 }
 
-                let provider = SummaryProvider.selected
-                guard let apiKey = KeychainStore.apiKey(for: provider) else {
-                    throw SummarizerError.missingAPIKey(provider)
-                }
+                let client = try SummaryProvider.selectedClient()
                 lecture.status = .summarizing
                 lecture.errorMessage = nil
                 try? context.save()
@@ -65,8 +62,10 @@ final class LectureProcessor {
                 let transcript = SummaryPrompt.timestampedTranscript(
                     lecture.segments, highlights: lecture.highlights, fallback: lecture.transcript ?? ""
                 )
-                let summary = try await provider.makeSummarizer(apiKey: apiKey, model: provider.selectedModel)
-                    .summarize(transcript: transcript, language: AppLanguage.summary)
+                let summary = try await client.respond(
+                    to: SummaryPrompt.request(transcript: transcript, language: AppLanguage.summary),
+                    as: LectureSummary.self
+                )
                 lecture.summary = summary
                 if lecture.title.isEmpty { lecture.title = summary.title }
                 lecture.status = .done

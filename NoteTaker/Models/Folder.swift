@@ -9,6 +9,10 @@ final class Folder {
     var createdAt: Date
     /// Language for lectures recorded in this folder; nil follows the one in Ajustes.
     var languageRaw: String?
+    /// JSON-encoded `[ClassTime]`: when this course meets, so recordings are filed here.
+    var scheduleData: Data?
+    /// JSON-encoded `StoredStudyGuide`.
+    var studyGuideData: Data?
     /// Deleting a folder keeps its lectures; they become unfiled.
     @Relationship(deleteRule: .nullify, inverse: \Lecture.folder)
     var lectures: [Lecture] = []
@@ -22,5 +26,20 @@ final class Folder {
     var language: AppLanguage? {
         get { languageRaw.flatMap(AppLanguage.init) }
         set { languageRaw = newValue?.rawValue }
+    }
+
+    var schedule: [ClassTime] {
+        get { scheduleData.flatMap { try? JSONDecoder().decode([ClassTime].self, from: $0) } ?? [] }
+        set { scheduleData = newValue.isEmpty ? nil : try? JSONEncoder().encode(newValue) }
+    }
+
+    var studyGuide: StoredStudyGuide? {
+        get { studyGuideData.flatMap { try? JSONDecoder().decode(StoredStudyGuide.self, from: $0) } }
+        set { studyGuideData = newValue.flatMap { try? JSONEncoder().encode($0) } }
+    }
+
+    /// The folder whose class is happening at `date`, if any.
+    static func inClass(at date: Date, among folders: [Folder]) -> Folder? {
+        folders.first { $0.schedule.contains { $0.contains(date) } }
     }
 }

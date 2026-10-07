@@ -5,6 +5,8 @@ struct FolderView: View {
     let folder: Folder
     @State private var lectureToRename: Lecture?
     @State private var isReviewing = false
+    @State private var isShowingGuide = false
+    @State private var isEditingSchedule = false
 
     private var lectures: [Lecture] {
         folder.lectures.sorted { $0.createdAt > $1.createdAt }
@@ -31,24 +33,33 @@ struct FolderView: View {
         .navigationTitle(folder.name)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Menu("Idioma das aulas", systemImage: "globe") {
-                    Picker("Idioma das aulas", selection: languageBinding) {
-                        Text("Igual aos Ajustes (\(AppLanguage.lecture.displayName))")
-                            .tag(AppLanguage?.none)
-                        ForEach(AppLanguage.allCases) { language in
-                            Text(language.displayName).tag(Optional(language))
-                        }
-                    }
-                }
+                Button("Guia para a prova", systemImage: "book.pages") { isShowingGuide = true }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Revisar disciplina", systemImage: "rectangle.on.rectangle.angled") { isReviewing = true }
                     .disabled(Flashcard.cards(from: folder.lectures).isEmpty)
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu("Mais", systemImage: "ellipsis") {
+                    Button("Horários das aulas", systemImage: "calendar.badge.clock") { isEditingSchedule = true }
+                    Picker(selection: languageBinding) {
+                        Text("Igual aos Ajustes (\(AppLanguage.lecture.displayName))")
+                            .tag(AppLanguage?.none)
+                        ForEach(AppLanguage.allCases) { language in
+                            Text(language.displayName).tag(Optional(language))
+                        }
+                    } label: {
+                        Label("Idioma das aulas", systemImage: "globe")
+                    }
+                    .pickerStyle(.menu)
+                }
+            }
         }
         .sheet(isPresented: $isReviewing) {
             FlashcardsView(title: folder.name, cards: Flashcard.cards(from: lectures), showsLecture: true)
         }
+        .sheet(isPresented: $isShowingGuide) { StudyGuideView(folder: folder) }
+        .sheet(isPresented: $isEditingSchedule) { ScheduleEditorView(folder: folder) }
         .safeAreaInset(edge: .bottom) { RecordLectureButton(folder: folder) }
         .renameLectureAlert($lectureToRename)
     }

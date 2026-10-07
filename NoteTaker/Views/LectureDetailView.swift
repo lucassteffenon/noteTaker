@@ -9,6 +9,7 @@ struct LectureDetailView: View {
     @State private var player = LecturePlayer()
     @State private var lectureToRename: Lecture?
     @State private var isReviewing = false
+    @State private var isAsking = false
 
     private enum Tab {
         case summary, transcript
@@ -65,15 +66,36 @@ struct LectureDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                Button("Perguntar", systemImage: "bubble.left.and.text.bubble.right") { isAsking = true }
+                    .disabled(lecture.transcript == nil)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 Button("Revisar", systemImage: "rectangle.on.rectangle.angled") { isReviewing = true }
                     .disabled(flashcards.isEmpty)
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Renomear", systemImage: "pencil") { lectureToRename = lecture }
+                Menu("Mais", systemImage: "ellipsis") {
+                    Button("Renomear", systemImage: "pencil") { lectureToRename = lecture }
+                    if let summary = lecture.summary {
+                        ExportMenu(
+                            document: ExportDocument(lecture: lecture, summary: summary),
+                            transcript: lecture.transcript
+                        )
+                    } else if let transcript = lecture.transcript {
+                        ShareLink(item: transcript, subject: Text(lecture.displayTitle)) {
+                            Label("Exportar transcrição", systemImage: "square.and.arrow.up")
+                        }
+                    }
+                }
             }
         }
         .sheet(isPresented: $isReviewing) {
             FlashcardsView(title: lecture.displayTitle, cards: flashcards)
+        }
+        .sheet(isPresented: $isAsking) {
+            LectureChatView(lecture: lecture) { start in
+                player.play(from: start)
+            }
         }
         .renameLectureAlert($lectureToRename)
         .onAppear {
