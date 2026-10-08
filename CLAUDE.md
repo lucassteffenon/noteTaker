@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Personal iOS app (SwiftUI, iOS 26+) for recording university lectures and meetings and getting a study summary or meeting minutes. UI strings are in Brazilian Portuguese; code and comments are in English. Single user, no backend: everything is stored on the device.
+"Anota" (Xcode project and code still named NoteTaker): personal iOS app (SwiftUI, iOS 26+) for recording university lectures and meetings and getting a study summary or meeting minutes. UI strings are in Brazilian Portuguese; code and comments are in English. Single user, no backend: everything is stored on the device.
 
 ## Commands
 
@@ -57,7 +57,7 @@ Each step is persisted in `Lecture` (`transcript`, `segmentsData`, `summaryData`
 
 **Class schedule:** `Folder.scheduleData` holds weekly `ClassTime`s (`ScheduleEditorView`). During a class, or up to 15 minutes before, the home screen's record button, Siri and the Control Center control record into that folder (`Folder.inClass`). The folder is captured in a `RecordingRequest` when recording starts: use `fullScreenCover(item:)`, because a `@State` set together with an `isPresented` flag reaches the cover stale.
 
-**Shortcuts:** `LectureShortcuts` (AppShortcutsProvider) exposes "Gravar aula" to Siri, Spotlight and the Action button. On the iOS 26.5 simulator with Xcode 27 metadata, running it from Spotlight fails with "couldn't find the AppShortcutsProvider"; the Control Center control (same intent, run directly) works.
+**Shortcuts:** `LectureShortcuts` (AppShortcutsProvider) exposes "Gravar" to Siri, Spotlight and the Action button. On the iOS 26.5 simulator with Xcode 27 metadata, running it from Spotlight fails with "couldn't find the AppShortcutsProvider"; the Control Center control (same intent, run directly) works.
 
 ## Storage
 

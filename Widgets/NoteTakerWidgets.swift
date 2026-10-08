@@ -11,16 +11,16 @@ struct NoteTakerWidgets: WidgetBundle {
     }
 }
 
-/// "Gravar aula" button for Control Center, the Lock Screen and the Action button.
+/// "Gravar" button for Control Center, the Lock Screen and the Action button.
 struct RecordLectureControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(kind: "com.lucassteffenon.NoteTaker.record") {
             ControlWidgetButton(action: RecordLectureIntent()) {
-                Label("Gravar aula", systemImage: "mic.fill")
+                Label("Gravar", systemImage: "mic.fill")
             }
         }
-        .displayName("Gravar aula")
-        .description("Abre o app Aulas já gravando.")
+        .displayName("Gravar no Anota")
+        .description("Abre o Anota já gravando.")
     }
 }
 

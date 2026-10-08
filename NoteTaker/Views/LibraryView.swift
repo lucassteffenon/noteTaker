@@ -52,7 +52,7 @@ struct LibraryView: View {
                     }
                 }
             }
-            .navigationTitle("Aulas")
+            .navigationTitle("Anota")
             .searchable(text: $searchText, prompt: "Buscar nas gravações")
             .navigationDestination(for: Folder.self) { FolderView(folder: $0) }
             .navigationDestination(for: Lecture.self) { LectureDetailView(lecture: $0) }

@@ -17,11 +17,11 @@ final class RecordingCommands {
     @ObservationIgnored var markMoment: (@MainActor () -> Void)?
 }
 
-/// "Gravar aula": opens the app straight into a new recording. Used by Siri, the Action button,
+/// "Gravar": opens the app straight into a new recording. Used by Siri, the Action button,
 /// Spotlight and the Control Center / Lock Screen control.
 struct RecordLectureIntent: AppIntent {
-    static let title: LocalizedStringResource = "Gravar aula"
-    static let description = IntentDescription("Abre o app e começa a gravar uma aula nova.")
+    static let title: LocalizedStringResource = "Gravar"
+    static let description = IntentDescription("Abre o app e começa uma gravação nova, como aula ou reunião conforme a pasta.")
     static let supportedModes: IntentModes = .foreground
 
     @MainActor

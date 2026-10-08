@@ -287,7 +287,7 @@
 				DEVELOPMENT_TEAM = 5PY83Y3G79;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Aulas;
+				INFOPLIST_KEY_CFBundleDisplayName = Anota;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "O microfone é usado para gravar suas aulas e reuniões.";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "As tarefas combinadas nas reuniões são adicionadas aos Lembretes quando você pede.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
@@ -316,7 +316,7 @@
 				DEVELOPMENT_TEAM = 5PY83Y3G79;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Aulas;
+				INFOPLIST_KEY_CFBundleDisplayName = Anota;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "O microfone é usado para gravar suas aulas e reuniões.";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "As tarefas combinadas nas reuniões são adicionadas aos Lembretes quando você pede.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
@@ -344,7 +344,7 @@
 				DEVELOPMENT_TEAM = 5PY83Y3G79;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/WidgetsInfo.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Aulas;
+				INFOPLIST_KEY_CFBundleDisplayName = Anota;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -368,7 +368,7 @@
 				DEVELOPMENT_TEAM = 5PY83Y3G79;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/WidgetsInfo.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Aulas;
+				INFOPLIST_KEY_CFBundleDisplayName = Anota;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

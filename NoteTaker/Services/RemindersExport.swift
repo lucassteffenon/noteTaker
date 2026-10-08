@@ -11,7 +11,7 @@ enum RemindersExport {
         var errorDescription: String? {
             switch self {
             case .accessDenied:
-                "Sem acesso aos Lembretes. Permita em Ajustes > Apps > Aulas > Lembretes."
+                "Sem acesso aos Lembretes. Permita em Ajustes > Apps > Anota > Lembretes."
             case .noDefaultList:
                 "Não há uma lista padrão no app Lembretes."
             }
