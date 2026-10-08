@@ -288,7 +288,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Aulas;
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "O microfone é usado para gravar suas aulas.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "O microfone é usado para gravar suas aulas e reuniões.";
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "As tarefas combinadas nas reuniões são adicionadas aos Lembretes quando você pede.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -316,7 +317,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Aulas;
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "O microfone é usado para gravar suas aulas.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "O microfone é usado para gravar suas aulas e reuniões.";
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "As tarefas combinadas nas reuniões são adicionadas aos Lembretes quando você pede.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

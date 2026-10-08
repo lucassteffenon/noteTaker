@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Personal iOS app (SwiftUI, iOS 26+) for recording university lectures and getting a study summary. UI strings are in Brazilian Portuguese; code and comments are in English. Single user, no backend: everything is stored on the device.
+Personal iOS app (SwiftUI, iOS 26+) for recording university lectures and meetings and getting a study summary or meeting minutes. UI strings are in Brazilian Portuguese; code and comments are in English. Single user, no backend: everything is stored on the device.
 
 ## Commands
 
@@ -34,6 +34,8 @@ Build settings and simple Info.plist keys (`INFOPLIST_KEY_*`) live in `project.p
    - `GeminiClient`: `generateContent`, `responseJsonSchema`. The key goes in the `x-goog-api-key` header, never in the URL.
 
    All three APIs return errors as `{"error": {"message": ...}}`, which `AIHTTP.post` handles in one place. Only Claude gets a `max_tokens`; OpenAI and Gemini count reasoning tokens against their limit, so none is sent. The models offered per provider (cheapest first, which is the default) and their estimated cost per 1h30 lecture live in `SummaryProvider.models`; the user picks one in Ajustes.
+
+**Lectures vs meetings:** every recording has a `RecordingKind` (`Lecture.kindRaw`), copied at recording time from the folder (`Folder.kindRaw`, nil = the default in Ajustes, `RecordingKind.standard`). The `Lecture` model is used for both. A class gets `LectureSummary` (`summaryData`, `SummaryPrompt`); a meeting gets `MeetingSummary` minutes (`meetingData`, `MeetingPrompt`): decisions, action items with owner and due date (the prompt gets the meeting date to resolve "até sexta"), open questions and subjects. `ActionItem.done`/`reminderID` are local state outside the schema; `MeetingSummaryView` toggles them and `RemindersExport` (EventKit, full Reminders access) adds items to Lembretes. Use `lecture.hasSummary` (summary for the current kind). Changing a lecture's kind keeps both summaries. Study features (flashcards, study guide) only show for classes. The transcriber doesn't separate speakers, so the prompts only attribute things to people when the dialogue makes it clear.
 
 Each step is persisted in `Lecture` (`transcript`, `segmentsData`, `summaryData`, `statusRaw`), so "Tentar novamente" (retry) skips the transcription when it already exists. A lecture stuck in `transcribing`/`summarizing` without a running task (the app was closed) is treated as interrupted in the UI and can be retried.
 

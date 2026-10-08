@@ -13,7 +13,7 @@ enum LectureQuestionPrompt {
         let turns = history.suffix(historyLimit).map { AITurn(role: $0.role, text: $0.text) }
             + [AITurn(role: .user, text: question)]
         return AIRequest(
-            system: system(language: AppLanguage.summary),
+            system: system(language: AppLanguage.summary, kind: lecture.kind),
             context: "<transcricao>\n\(transcript)\n</transcricao>",
             turns: turns,
             schemaName: "lecture_answer",
@@ -22,19 +22,24 @@ enum LectureQuestionPrompt {
         )
     }
 
-    private static func system(language: AppLanguage) -> String {
-        """
-        Você ajuda um estudante universitário a entender uma aula que ele gravou. A transcrição \
-        automática da aula vem a seguir; ela pode ter erros de reconhecimento de fala, então \
-        interprete termos técnicos pelo contexto.
+    private static func system(language: AppLanguage, kind: RecordingKind) -> String {
+        let (intro, speaker) = switch kind {
+        case .lecture:
+            ("Você ajuda um estudante universitário a entender uma aula que ele gravou.", "o professor disse na aula")
+        case .meeting:
+            ("Você ajuda o usuário a consultar uma reunião que ele gravou.", "foi dito na reunião")
+        }
+        return """
+        \(intro) A transcrição automática vem a seguir; ela pode ter erros de reconhecimento de \
+        fala, então interprete nomes e termos técnicos pelo contexto. A transcrição não \
+        identifica quem está falando.
 
-        Responda às perguntas do estudante em \(language.promptName), com base no que o \
-        professor disse na aula. Seja direto e didático. Se a aula não tratar do assunto, diga \
-        isso claramente; você pode complementar com conhecimento geral, desde que deixe claro \
-        o que não foi dito na aula.
+        Responda às perguntas em \(language.promptName), com base no que \(speaker). Seja \
+        direto e claro. Se a gravação não tratar do assunto, diga isso claramente; você pode \
+        complementar com conhecimento geral, desde que deixe claro o que não foi dito.
 
         A transcrição vem em trechos que começam com uma marcação como [754s], o segundo da \
-        gravação em que o trecho começa. Trechos com ⭐ foram marcados pelo estudante como \
+        gravação em que o trecho começa. Trechos com ⭐ foram marcados pelo usuário como \
         importantes. Em startSeconds, informe o segundo da marcação do trecho que melhor \
         responde à pergunta, ou -1 se nenhum trecho for relevante.
         """

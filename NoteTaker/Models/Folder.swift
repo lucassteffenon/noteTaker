@@ -9,6 +9,8 @@ final class Folder {
     var createdAt: Date
     /// Language for lectures recorded in this folder; nil follows the one in Ajustes.
     var languageRaw: String?
+    /// Class or meeting for recordings in this folder; nil follows the default in Ajustes.
+    var kindRaw: String?
     /// JSON-encoded `[ClassTime]`: when this course meets, so recordings are filed here.
     var scheduleData: Data?
     /// JSON-encoded `StoredStudyGuide`.
@@ -26,6 +28,16 @@ final class Folder {
     var language: AppLanguage? {
         get { languageRaw.flatMap(AppLanguage.init) }
         set { languageRaw = newValue?.rawValue }
+    }
+
+    var kind: RecordingKind? {
+        get { kindRaw.flatMap(RecordingKind.init) }
+        set { kindRaw = newValue?.rawValue }
+    }
+
+    /// The kind new recordings in this folder get.
+    var recordingKind: RecordingKind {
+        kind ?? .standard
     }
 
     var schedule: [ClassTime] {

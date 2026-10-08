@@ -32,7 +32,7 @@ struct RecordingView: View {
             VStack(spacing: 8) {
                 Text(recorder.isPaused ? "Pausado" : "Gravando… pode bloquear a tela.")
                 HStack(spacing: 16) {
-                    Label("Aula em \(language.displayName.lowercased())", systemImage: "globe")
+                    Label("\(recording.kind.displayName) em \(language.displayName.lowercased())", systemImage: "globe")
                     Label(folder?.name ?? "Sem pasta", systemImage: "folder")
                 }
                 .font(.footnote)
@@ -112,6 +112,7 @@ struct RecordingView: View {
 
     private var markCaption: String {
         switch recorder.marks.count {
+        case 0 where recording.kind == .meeting: "Toque quando decidirem algo ou passarem uma tarefa"
         case 0: "Toque quando o professor disser algo que cai na prova"
         case 1: "1 momento marcado"
         case let count: "\(count) momentos marcados"
@@ -123,7 +124,7 @@ struct RecordingView: View {
         guard let result = recorder.stop() else { return }
         let lecture = Lecture(
             audioFileName: result.url.lastPathComponent, duration: result.duration, language: language,
-            folder: folder, highlights: marks
+            kind: recording.kind, folder: folder, highlights: marks
         )
         context.insert(lecture)
         try? context.save()

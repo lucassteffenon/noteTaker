@@ -30,7 +30,7 @@ struct RecordingLiveActivity: Widget {
         ActivityConfiguration(for: RecordingActivityAttributes.self) { context in
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Label(context.isPaused ? "Pausado" : "Gravando aula", systemImage: "waveform")
+                    Label(context.isPaused ? "Pausado" : "Gravando", systemImage: "waveform")
                         .font(.subheadline.bold())
                         .foregroundStyle(context.isPaused ? Color.secondary : Color.red)
                     ElapsedText(state: context.state)

@@ -55,7 +55,7 @@ private struct LectureMatch {
 
     init?(lecture: Lecture, query: String) {
         self.lecture = lecture
-        if let summary = lecture.summary, let text = Self.summaryTexts(summary).first(where: { $0.range(of: query, options: Self.options) != nil }) {
+        if let text = Self.summaryTexts(lecture).first(where: { $0.range(of: query, options: Self.options) != nil }) {
             (source, sourceIcon, time) = ("Resumo", "doc.text", nil)
             snippet = Self.snippet(of: text, around: query)
         } else if let segment = lecture.segments.first(where: { $0.text.range(of: query, options: Self.options) != nil }) {
@@ -72,12 +72,24 @@ private struct LectureMatch {
         }
     }
 
-    private static func summaryTexts(_ summary: LectureSummary) -> [String] {
-        [summary.overview]
-            + summary.keyPoints.map(\.text)
-            + summary.concepts.map { "\($0.term): \($0.explanation)" }
-            + summary.assignments
-            + summary.reviewQuestions.map(\.question)
+    /// Texts of the class summary and of the meeting minutes, whichever the lecture has.
+    private static func summaryTexts(_ lecture: Lecture) -> [String] {
+        var texts: [String] = []
+        if let summary = lecture.summary {
+            texts += [summary.overview]
+                + summary.keyPoints.map(\.text)
+                + summary.concepts.map { "\($0.term): \($0.explanation)" }
+                + summary.assignments
+                + summary.reviewQuestions.map(\.question)
+        }
+        if let minutes = lecture.meeting {
+            texts += [minutes.overview]
+                + minutes.decisions.map(\.text)
+                + minutes.actionItems.map(\.task)
+                + minutes.openQuestions
+                + minutes.keyPoints.map(\.text)
+        }
+        return texts
     }
 
     /// About a line of text around the first match, with the match in bold.

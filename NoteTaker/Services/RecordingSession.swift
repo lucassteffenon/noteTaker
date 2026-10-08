@@ -13,11 +13,14 @@ final class ActiveRecording: Identifiable {
     let folder: Folder?
     /// Fixed when recording starts, so the whole lecture uses one language.
     let language: AppLanguage
+    /// Class or meeting, fixed when recording starts.
+    let kind: RecordingKind
     let recorder = AudioRecorder()
 
     init(folder: Folder?) {
         self.folder = folder
         language = folder?.language ?? .lecture
+        kind = folder?.recordingKind ?? .standard
     }
 }
 
@@ -69,13 +72,15 @@ final class RecordingSession {
         var fileName: String
         var folderID: UUID?
         var language: AppLanguage
+        /// nil for progress saved before recordings had a kind.
+        var kind: RecordingKind?
         var marks: [TimeInterval]
     }
 
     private func saveProgress() {
         guard let current, let fileName = current.recorder.fileName else { return }
         let progress = Progress(
-            fileName: fileName, folderID: current.folder?.id, language: current.language,
+            fileName: fileName, folderID: current.folder?.id, language: current.language, kind: current.kind,
             marks: current.recorder.marks
         )
         UserDefaults.standard.set(try? JSONEncoder().encode(progress), forKey: Progress.defaultsKey)
@@ -120,7 +125,8 @@ final class RecordingSession {
             }
             let lecture = Lecture(
                 audioFileName: url.lastPathComponent, duration: duration, language: progress?.language ?? .lecture,
-                folder: folder, highlights: progress?.marks ?? [], createdAt: created
+                kind: progress?.kind ?? folder?.recordingKind ?? .standard, folder: folder,
+                highlights: progress?.marks ?? [], createdAt: created
             )
             context.insert(lecture)
             try? context.save()

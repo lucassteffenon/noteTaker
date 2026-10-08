@@ -151,13 +151,17 @@ struct ExportMenu: View {
 }
 
 extension ExportDocument {
-    init(lecture: Lecture, summary: LectureSummary) {
-        title = lecture.displayTitle
-        subtitle = [
+    private static func subtitle(for lecture: Lecture) -> String {
+        [
             lecture.folder?.name,
             lecture.createdAt.formatted(date: .long, time: .shortened),
             Duration.seconds(lecture.duration).formatted(.units(allowed: [.hours, .minutes], width: .abbreviated)),
         ].compactMap(\.self).joined(separator: " · ")
+    }
+
+    init(lecture: Lecture, summary: LectureSummary) {
+        title = lecture.displayTitle
+        subtitle = Self.subtitle(for: lecture)
         var blocks: [Block] = [.heading("Resumo")]
         blocks += summary.overview.components(separatedBy: "\n\n").map(Block.paragraph)
         blocks += [.heading("Pontos principais"), .bullets(summary.keyPoints.map { ($0.important ? "⭐ " : "") + $0.text })]
@@ -169,6 +173,31 @@ extension ExportDocument {
         }
         if !summary.reviewQuestions.isEmpty {
             blocks += [.heading("Perguntas de revisão"), .questions(summary.reviewQuestions.map { Pair(title: $0.question, text: $0.answer) })]
+        }
+        self.blocks = blocks
+    }
+
+    init(lecture: Lecture, meeting: MeetingSummary) {
+        title = lecture.displayTitle
+        subtitle = Self.subtitle(for: lecture)
+        var blocks: [Block] = [.heading("Resumo")]
+        blocks += meeting.overview.components(separatedBy: "\n\n").map(Block.paragraph)
+        if !meeting.decisions.isEmpty {
+            blocks += [.heading("Decisões"), .bullets(meeting.decisions.map(\.text))]
+        }
+        if !meeting.actionItems.isEmpty {
+            blocks += [.heading("Tarefas"), .bullets(meeting.actionItems.map { item in
+                (item.done ? "[feita] " : "") + item.task + (item.details.map { " (\($0))" } ?? "")
+            })]
+        }
+        if !meeting.openQuestions.isEmpty {
+            blocks += [.heading("Em aberto"), .bullets(meeting.openQuestions)]
+        }
+        if !meeting.keyPoints.isEmpty {
+            blocks += [
+                .heading("Assuntos discutidos"),
+                .bullets(meeting.keyPoints.map { ($0.important ? "⭐ " : "") + $0.text }),
+            ]
         }
         self.blocks = blocks
     }

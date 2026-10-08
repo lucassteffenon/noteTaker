@@ -30,9 +30,13 @@ final class Lecture {
     var highlights: [TimeInterval] = []
     /// JSON-encoded `[ChatMessage]`: questions asked about this lecture and their answers.
     var chatData: Data?
+    /// Class or meeting, captured when recording like the language.
+    var kindRaw: String = RecordingKind.lecture.rawValue
+    /// JSON-encoded `MeetingSummary`, the summary of a meeting (`summaryData` is for classes).
+    var meetingData: Data?
 
     init(
-        audioFileName: String, duration: TimeInterval, language: AppLanguage,
+        audioFileName: String, duration: TimeInterval, language: AppLanguage, kind: RecordingKind = .lecture,
         folder: Folder? = nil, highlights: [TimeInterval] = [], createdAt: Date = .now
     ) {
         self.id = UUID()
@@ -43,11 +47,23 @@ final class Lecture {
         self.audioFileName = audioFileName
         self.statusRaw = Status.recorded.rawValue
         self.languageRaw = language.rawValue
+        self.kindRaw = kind.rawValue
         self.highlights = highlights
     }
 
     var language: AppLanguage {
         AppLanguage(rawValue: languageRaw) ?? .portuguese
+    }
+
+    /// Changing it after the fact keeps both summaries; the status follows the one for the new kind.
+    var kind: RecordingKind {
+        get { RecordingKind(rawValue: kindRaw) ?? .lecture }
+        set {
+            kindRaw = newValue.rawValue
+            if status == .done || status == .transcribed, transcript != nil {
+                status = hasSummary ? .done : .transcribed
+            }
+        }
     }
 
     var status: Status {
@@ -58,6 +74,16 @@ final class Lecture {
     var summary: LectureSummary? {
         get { summaryData.flatMap { try? JSONDecoder().decode(LectureSummary.self, from: $0) } }
         set { summaryData = newValue.flatMap { try? JSONEncoder().encode($0) } }
+    }
+
+    var meeting: MeetingSummary? {
+        get { meetingData.flatMap { try? JSONDecoder().decode(MeetingSummary.self, from: $0) } }
+        set { meetingData = newValue.flatMap { try? JSONEncoder().encode($0) } }
+    }
+
+    /// Whether the summary for the current kind exists (class summary or meeting minutes).
+    var hasSummary: Bool {
+        kind == .meeting ? meetingData != nil : summaryData != nil
     }
 
     var segments: [TranscriptSegment] {
@@ -75,7 +101,7 @@ final class Lecture {
     }
 
     var displayTitle: String {
-        title.isEmpty ? "Aula de \(createdAt.formatted(date: .abbreviated, time: .shortened))" : title
+        title.isEmpty ? "\(kind.displayName) de \(createdAt.formatted(date: .abbreviated, time: .shortened))" : title
     }
 }
 

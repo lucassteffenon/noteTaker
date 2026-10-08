@@ -74,8 +74,33 @@ struct SummaryView: View {
         }
     }
 
-    @ViewBuilder
     private func playButton(at time: TimeInterval?) -> some View {
+        PlayFromButton(time: time, player: player)
+    }
+
+    private func section(
+        _ title: String, systemImage: String, @ViewBuilder content: () -> some View
+    ) -> some View {
+        SummarySection(title: title, systemImage: systemImage, content: content)
+    }
+
+    private func bullets(_ items: [String]) -> some View {
+        ForEach(items, id: \.self) { item in
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("•")
+                Text(item)
+            }
+        }
+        .textSelection(.enabled)
+    }
+}
+
+/// "▶ 12:34": plays the recording from `time`. Hidden when the time or the player is missing.
+struct PlayFromButton: View {
+    let time: TimeInterval?
+    let player: LecturePlayer?
+
+    var body: some View {
         if let time, let player {
             Button {
                 player.play(from: time)
@@ -89,24 +114,25 @@ struct SummaryView: View {
             .accessibilityLabel("Ouvir a partir de \(time.clockText)")
         }
     }
+}
 
-    private func section(
-        _ title: String, systemImage: String, @ViewBuilder content: () -> some View
-    ) -> some View {
+/// A titled block of a summary or meeting minutes.
+struct SummarySection<Content: View>: View {
+    let title: String
+    let systemImage: String
+    let content: Content
+
+    init(title: String, systemImage: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.systemImage = systemImage
+        self.content = content()
+    }
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label(title, systemImage: systemImage)
                 .font(.title3.bold())
-            content()
+            content
         }
-    }
-
-    private func bullets(_ items: [String]) -> some View {
-        ForEach(items, id: \.self) { item in
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("•")
-                Text(item)
-            }
-        }
-        .textSelection(.enabled)
     }
 }

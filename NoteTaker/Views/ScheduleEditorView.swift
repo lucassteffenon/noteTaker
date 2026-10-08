@@ -29,7 +29,7 @@ struct ScheduleEditorView: View {
                         try? context.save()
                     }
                 } footer: {
-                    Text("No horário da aula, ou até \(ClassTime.earlyMargin) minutos antes, o botão Gravar aula da tela inicial, a Siri e a Central de Controle já gravam nesta pasta.")
+                    Text("No horário cadastrado, ou até \(ClassTime.earlyMargin) minutos antes, o botão de gravar da tela inicial, a Siri e a Central de Controle já gravam nesta pasta.")
                 }
 
                 Section("Adicionar horário") {

@@ -34,15 +34,22 @@ struct LectureDetailView: View {
 
                 if lecture.transcript != nil {
                     Picker("Conteúdo", selection: $tab) {
-                        Text("Resumo").tag(Tab.summary)
+                        Text(lecture.kind == .meeting ? "Ata" : "Resumo").tag(Tab.summary)
                         Text("Transcrição").tag(Tab.transcript)
                     }
                     .pickerStyle(.segmented)
 
                     switch tab {
                     case .summary:
-                        if let summary = lecture.summary {
-                            SummaryView(summary: summary, player: availablePlayer)
+                        switch lecture.kind {
+                        case .lecture:
+                            if let summary = lecture.summary {
+                                SummaryView(summary: summary, player: availablePlayer)
+                            }
+                        case .meeting:
+                            if let minutes = lecture.meeting {
+                                MeetingSummaryView(lecture: lecture, minutes: minutes, player: availablePlayer)
+                            }
                         }
                     case .transcript:
                         if lecture.segments.isEmpty {
@@ -69,23 +76,31 @@ struct LectureDetailView: View {
                 Button("Perguntar", systemImage: "bubble.left.and.text.bubble.right") { isAsking = true }
                     .disabled(lecture.transcript == nil)
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Revisar", systemImage: "rectangle.on.rectangle.angled") { isReviewing = true }
-                    .disabled(flashcards.isEmpty)
+            if lecture.kind == .lecture {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Revisar", systemImage: "rectangle.on.rectangle.angled") { isReviewing = true }
+                        .disabled(flashcards.isEmpty)
+                }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu("Mais", systemImage: "ellipsis") {
                     Button("Renomear", systemImage: "pencil") { lectureToRename = lecture }
-                    if let summary = lecture.summary {
-                        ExportMenu(
-                            document: ExportDocument(lecture: lecture, summary: summary),
-                            transcript: lecture.transcript
-                        )
+                    if let document = exportDocument {
+                        ExportMenu(document: document, transcript: lecture.transcript)
                     } else if let transcript = lecture.transcript {
                         ShareLink(item: transcript, subject: Text(lecture.displayTitle)) {
                             Label("Exportar transcrição", systemImage: "square.and.arrow.up")
                         }
                     }
+                    Picker(selection: kindBinding) {
+                        ForEach(RecordingKind.allCases) { kind in
+                            Label(kind.displayName, systemImage: kind.systemImage).tag(kind)
+                        }
+                    } label: {
+                        Label("Tipo", systemImage: lecture.kind.systemImage)
+                    }
+                    .pickerStyle(.menu)
+                    .disabled(processor.isProcessing(lecture))
                 }
             }
         }
@@ -100,13 +115,27 @@ struct LectureDetailView: View {
         .renameLectureAlert($lectureToRename)
         .onAppear {
             player.load(lecture.audioURL)
-            if lecture.summary == nil { tab = .transcript }
+            if !lecture.hasSummary { tab = .transcript }
         }
         .onDisappear { player.pause() }
     }
 
     private var availablePlayer: LecturePlayer? {
         player.isLoaded ? player : nil
+    }
+
+    private var kindBinding: Binding<RecordingKind> {
+        Binding(get: { lecture.kind }, set: {
+            lecture.kind = $0
+            try? context.save()
+        })
+    }
+
+    private var exportDocument: ExportDocument? {
+        switch lecture.kind {
+        case .lecture: lecture.summary.map { ExportDocument(lecture: lecture, summary: $0) }
+        case .meeting: lecture.meeting.map { ExportDocument(lecture: lecture, meeting: $0) }
+        }
     }
 
     private var flashcards: [Flashcard] {
@@ -167,7 +196,7 @@ struct LectureDetailView: View {
             // Failed, never started, or interrupted because the app was closed mid-way.
             VStack(alignment: .leading, spacing: 12) {
                 Label(
-                    lecture.errorMessage ?? "O processamento desta aula foi interrompido.",
+                    lecture.errorMessage ?? "O processamento desta \(lecture.kind.noun) foi interrompido.",
                     systemImage: "exclamationmark.triangle"
                 )
                 .foregroundStyle(.orange)
@@ -187,12 +216,12 @@ struct LectureDetailView: View {
         return VStack(alignment: .leading, spacing: 12) {
             Label("Transcrição pronta. O resumo só é gerado se você pedir.", systemImage: "text.bubble")
                 .foregroundStyle(.secondary)
-            Button("Gerar resumo", systemImage: "sparkles") {
+            Button(lecture.kind == .meeting ? "Gerar ata" : "Gerar resumo", systemImage: "sparkles") {
                 tab = .summary
                 processor.process(lecture, in: context, summarize: true)
             }
             .buttonStyle(.borderedProminent)
-            Text("\(model.name) · \(model.cost) por aula de 1h30")
+            Text("\(model.name) · \(model.cost) por 1h30 de gravação")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

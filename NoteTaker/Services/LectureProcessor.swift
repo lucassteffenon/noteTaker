@@ -62,12 +62,26 @@ final class LectureProcessor {
                 let transcript = SummaryPrompt.timestampedTranscript(
                     lecture.segments, highlights: lecture.highlights, fallback: lecture.transcript ?? ""
                 )
-                let summary = try await client.respond(
-                    to: SummaryPrompt.request(transcript: transcript, language: AppLanguage.summary),
-                    as: LectureSummary.self
-                )
-                lecture.summary = summary
-                if lecture.title.isEmpty { lecture.title = summary.title }
+                let title: String
+                switch lecture.kind {
+                case .lecture:
+                    let summary = try await client.respond(
+                        to: SummaryPrompt.request(transcript: transcript, language: AppLanguage.summary),
+                        as: LectureSummary.self
+                    )
+                    lecture.summary = summary
+                    title = summary.title
+                case .meeting:
+                    let minutes = try await client.respond(
+                        to: MeetingPrompt.request(
+                            transcript: transcript, language: AppLanguage.summary, date: lecture.createdAt
+                        ),
+                        as: MeetingSummary.self
+                    )
+                    lecture.meeting = minutes
+                    title = minutes.title
+                }
+                if lecture.title.isEmpty { lecture.title = title }
                 lecture.status = .done
                 progress.completedUnitCount = 100
             } catch {
@@ -80,7 +94,8 @@ final class LectureProcessor {
         }
 
         ContinuedProcessing.start(
-            title: summarize ? "Processando aula" : "Transcrevendo aula", subtitle: lecture.displayTitle, progress: progress, work: work
+            title: "\(summarize ? "Processando" : "Transcrevendo") \(lecture.kind.noun)",
+            subtitle: lecture.displayTitle, progress: progress, work: work
         )
     }
 }

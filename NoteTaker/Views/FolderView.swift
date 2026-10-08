@@ -12,6 +12,12 @@ struct FolderView: View {
         folder.lectures.sorted { $0.createdAt > $1.createdAt }
     }
 
+    private var kind: RecordingKind { folder.recordingKind }
+
+    private var kindBinding: Binding<RecordingKind?> {
+        Binding(get: { folder.kind }, set: { folder.kind = $0 })
+    }
+
     private var languageBinding: Binding<AppLanguage?> {
         Binding(get: { folder.language }, set: { folder.language = $0 })
     }
@@ -20,9 +26,9 @@ struct FolderView: View {
         Group {
             if folder.lectures.isEmpty {
                 ContentUnavailableView(
-                    "Nenhuma aula nesta pasta",
+                    "Nenhuma gravação nesta pasta",
                     systemImage: "folder",
-                    description: Text("Grave uma aula aqui, ou toque e segure uma aula existente para movê-la.")
+                    description: Text("Grave uma \(kind.noun) aqui, ou toque e segure uma gravação existente para movê-la.")
                 )
             } else {
                 List {
@@ -32,16 +38,28 @@ struct FolderView: View {
         }
         .navigationTitle(folder.name)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Guia para a prova", systemImage: "book.pages") { isShowingGuide = true }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Revisar disciplina", systemImage: "rectangle.on.rectangle.angled") { isReviewing = true }
-                    .disabled(Flashcard.cards(from: folder.lectures).isEmpty)
+            if kind == .lecture {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Guia para a prova", systemImage: "book.pages") { isShowingGuide = true }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Revisar disciplina", systemImage: "rectangle.on.rectangle.angled") { isReviewing = true }
+                        .disabled(Flashcard.cards(from: folder.lectures).isEmpty)
+                }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu("Mais", systemImage: "ellipsis") {
-                    Button("Horários das aulas", systemImage: "calendar.badge.clock") { isEditingSchedule = true }
+                    Picker(selection: kindBinding) {
+                        Text("Igual aos Ajustes (\(RecordingKind.standard.displayName))")
+                            .tag(RecordingKind?.none)
+                        ForEach(RecordingKind.allCases) { kind in
+                            Label(kind.displayName, systemImage: kind.systemImage).tag(Optional(kind))
+                        }
+                    } label: {
+                        Label("Tipo das gravações", systemImage: kind.systemImage)
+                    }
+                    .pickerStyle(.menu)
+                    Button("Horários", systemImage: "calendar.badge.clock") { isEditingSchedule = true }
                     Picker(selection: languageBinding) {
                         Text("Igual aos Ajustes (\(AppLanguage.lecture.displayName))")
                             .tag(AppLanguage?.none)
@@ -49,7 +67,7 @@ struct FolderView: View {
                             Text(language.displayName).tag(Optional(language))
                         }
                     } label: {
-                        Label("Idioma das aulas", systemImage: "globe")
+                        Label("Idioma falado", systemImage: "globe")
                     }
                     .pickerStyle(.menu)
                 }

@@ -3,9 +3,11 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(SummaryProvider.defaultsKey) private var savedProvider = SummaryProvider.claude
+    @AppStorage(RecordingKind.defaultsKey) private var savedKind = RecordingKind.lecture
     @AppStorage(AppLanguage.lectureDefaultsKey) private var savedLectureLanguage = AppLanguage.portuguese
     @AppStorage(AppLanguage.summaryDefaultsKey) private var savedSummaryLanguage = AppLanguage.portuguese
     @State private var provider = SummaryProvider.selected
+    @State private var kind = RecordingKind.standard
     @State private var lectureLanguage = AppLanguage.lecture
     @State private var summaryLanguage = AppLanguage.summary
     @State private var apiKeys = Dictionary(
@@ -19,7 +21,17 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    Picker("Idioma das aulas", selection: $lectureLanguage) {
+                    Picker("Tipo padrão", selection: $kind) {
+                        ForEach(RecordingKind.allCases) { Label($0.displayName, systemImage: $0.systemImage).tag($0) }
+                    }
+                } header: {
+                    Text("Gravações")
+                } footer: {
+                    Text("Aulas viram resumo de estudo com conceitos e perguntas; reuniões viram ata com decisões e tarefas. Cada pasta pode ter o seu próprio tipo.")
+                }
+
+                Section {
+                    Picker("Idioma falado", selection: $lectureLanguage) {
                         ForEach(AppLanguage.allCases) { Text($0.displayName).tag($0) }
                     }
                     Picker("Idioma do resumo", selection: $summaryLanguage) {
@@ -28,7 +40,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Idiomas")
                 } footer: {
-                    Text("O idioma das aulas vale para as próximas gravações e precisa ser o idioma falado pelo professor.")
+                    Text("O idioma falado vale para as próximas gravações e precisa ser o idioma em que se fala na gravação.")
                 }
 
                 Section {
@@ -45,7 +57,7 @@ struct SettingsView: View {
                 } header: {
                     Text("IA que gera os resumos")
                 } footer: {
-                    Text("Custo estimado por aula de 1h30. A transcrição é sempre feita no aparelho, de graça; só o texto da aula é enviado ao serviço escolhido.")
+                    Text("Custo estimado por 1h30 de gravação. A transcrição é sempre feita no aparelho, de graça; só o texto da gravação é enviado ao serviço escolhido.")
                 }
 
                 Section {
@@ -87,6 +99,7 @@ struct SettingsView: View {
             UserDefaults.standard.set(model.id, forKey: provider.modelDefaultsKey)
         }
         savedProvider = provider
+        savedKind = kind
         savedLectureLanguage = lectureLanguage
         savedSummaryLanguage = summaryLanguage
         dismiss()

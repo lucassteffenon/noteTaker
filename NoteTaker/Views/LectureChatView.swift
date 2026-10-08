@@ -15,11 +15,20 @@ struct LectureChatView: View {
     @State private var confirmClear = false
     @FocusState private var isFieldFocused: Bool
 
-    private static let suggestions = [
-        "Do que tratou esta aula?",
-        "O que o professor disse que cai na prova?",
-        "Explique de novo a parte mais difícil.",
-    ]
+    private var suggestions: [String] {
+        switch lecture.kind {
+        case .lecture: [
+            "Do que tratou esta aula?",
+            "O que o professor disse que cai na prova?",
+            "Explique de novo a parte mais difícil.",
+        ]
+        case .meeting: [
+            "O que ficou decidido?",
+            "Quais são as minhas tarefas?",
+            "Qual foi a discussão sobre prazos?",
+        ]
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -68,13 +77,13 @@ struct LectureChatView: View {
 
     private var intro: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Pergunte qualquer coisa sobre esta aula. O \(SummaryProvider.selected.displayName) responde com base na transcrição e mostra onde o professor falou disso.")
+            Text("Pergunte qualquer coisa sobre esta \(lecture.kind.noun). O \(SummaryProvider.selected.displayName) responde com base na transcrição e mostra em que momento da gravação isso foi dito.")
                 .foregroundStyle(.secondary)
-            ForEach(Self.suggestions, id: \.self) { suggestion in
+            ForEach(suggestions, id: \.self) { suggestion in
                 Button(suggestion) { ask(suggestion) }
                     .buttonStyle(.bordered)
             }
-            Text("Cada pergunta envia a transcrição da aula, então tem um custo parecido com o de um resumo pequeno.")
+            Text("Cada pergunta envia a transcrição da \(lecture.kind.noun), então tem um custo parecido com o de um resumo pequeno.")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }

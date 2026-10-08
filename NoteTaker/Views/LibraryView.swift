@@ -30,9 +30,9 @@ struct LibraryView: View {
                     LectureSearchResults(query: searchText.trimmingCharacters(in: .whitespaces))
                 } else if folders.isEmpty && unfiledLectures.isEmpty {
                     ContentUnavailableView(
-                        "Nenhuma aula gravada",
+                        "Nenhuma gravação",
                         systemImage: "mic",
-                        description: Text("Crie uma pasta para cada disciplina ou toque em Gravar aula.")
+                        description: Text("Crie uma pasta para cada disciplina ou projeto, ou toque em Gravar.")
                     )
                 } else {
                     List {
@@ -54,7 +54,7 @@ struct LibraryView: View {
                 }
             }
             .navigationTitle("Aulas")
-            .searchable(text: $searchText, prompt: "Buscar nas aulas")
+            .searchable(text: $searchText, prompt: "Buscar nas gravações")
             .navigationDestination(for: Folder.self) { FolderView(folder: $0) }
             .navigationDestination(for: Lecture.self) { LectureDetailView(lecture: $0) }
             .toolbar {
@@ -89,13 +89,13 @@ struct LibraryView: View {
                 Button("OK") {}
             } message: {
                 Text(session.recoveredCount == 1
-                    ? "Uma gravação foi interrompida antes de você tocar em Concluir (o app foi fechado). O áudio foi salvo como uma aula e está sendo transcrito."
-                    : "\(session.recoveredCount) gravações foram interrompidas antes de você tocar em Concluir (o app foi fechado). O áudio foi salvo como aulas e está sendo transcrito.")
+                    ? "Uma gravação foi interrompida antes de você tocar em Concluir (o app foi fechado). O áudio foi salvo e está sendo transcrito."
+                    : "\(session.recoveredCount) gravações foram interrompidas antes de você tocar em Concluir (o app foi fechado). Os áudios foram salvos e estão sendo transcritos.")
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
             .renameLectureAlert($lectureToRename)
             .alert(folderToRename == nil ? "Nova pasta" : "Renomear pasta", isPresented: $isNamingFolder) {
-                TextField("Nome da disciplina", text: $folderName)
+                TextField("Disciplina ou projeto", text: $folderName)
                 Button(folderToRename == nil ? "Criar" : "Salvar", action: saveFolderName)
                     .disabled(folderName.trimmingCharacters(in: .whitespaces).isEmpty)
                 Button("Cancelar", role: .cancel) {}
@@ -110,7 +110,7 @@ struct LibraryView: View {
                     try? context.save()
                 }
             } message: {
-                Text("As aulas desta pasta não serão apagadas. Elas vão para Sem pasta.")
+                Text("As gravações desta pasta não serão apagadas. Elas vão para Sem pasta.")
             }
         }
         // Presented from the root so it covers any screen, and comes back if the system
@@ -121,7 +121,7 @@ struct LibraryView: View {
     private func folderRow(_ folder: Folder) -> some View {
         NavigationLink(value: folder) {
             HStack {
-                Label(folder.name, systemImage: "folder.fill")
+                Label(folder.name, systemImage: folder.recordingKind == .meeting ? "person.2.fill" : "folder.fill")
                 Spacer()
                 if let language = folder.language {
                     Label(language.displayName, systemImage: "globe")

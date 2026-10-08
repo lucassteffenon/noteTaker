@@ -45,7 +45,7 @@ struct LectureRows: View {
     }
 }
 
-/// The "Gravar aula" button pinned to the bottom of a list. New lectures go into `folder`.
+/// The "Gravar aula" / "Gravar reunião" button pinned to the bottom of a list. New lectures go into `folder`.
 struct RecordLectureButton: View {
     let folder: Folder?
     /// Shows the folder's name, when it was picked from the class schedule.
@@ -56,11 +56,12 @@ struct RecordLectureButton: View {
             // The folder is fixed now: a class ending mid-recording doesn't move the lecture.
             RecordingSession.shared.begin(folder: folder)
         } label: {
+            let noun = (folder?.recordingKind ?? .standard).noun
             Group {
                 if showsFolderName, let folder {
-                    Label("Gravar aula de \(folder.name)", systemImage: "mic.fill")
+                    Label("Gravar \(noun) de \(folder.name)", systemImage: "mic.fill")
                 } else {
-                    Label("Gravar aula", systemImage: "mic.fill")
+                    Label("Gravar \(noun)", systemImage: "mic.fill")
                 }
             }
             .lineLimit(1)
