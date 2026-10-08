@@ -105,10 +105,13 @@ final class RecordingSession {
 
         let known = Set(((try? context.fetch(FetchDescriptor<Lecture>())) ?? []).map(\.audioFileName))
         let activeFile = current?.recorder.fileName
+        // Segments written after a pause or interruption go back into their recording first.
+        Storage.mergeLeftoverParts(except: activeFile)
         let files = (try? FileManager.default.contentsOfDirectory(
             at: Storage.recordingsDirectory, includingPropertiesForKeys: [.creationDateKey]
         )) ?? []
-        for url in files where !known.contains(url.lastPathComponent) && url.lastPathComponent != activeFile {
+        for url in files where !known.contains(url.lastPathComponent) && url.lastPathComponent != activeFile
+            && !Storage.isPart(url) {
             // Recordings made before the switch to ADTS (.m4a) are unreadable when cut short;
             // they are left on disk rather than deleted.
             guard let file = try? AVAudioFile(forReading: url) else {
