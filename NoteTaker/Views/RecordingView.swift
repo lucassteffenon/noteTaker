@@ -21,8 +21,8 @@ struct RecordingView: View {
 
             Image(systemName: "waveform")
                 .font(.system(size: 72))
-                .foregroundStyle(recorder.isPaused ? Color.secondary : Color.red)
-                .symbolEffect(.variableColor.iterative, isActive: recorder.isRecording && !recorder.isPaused)
+                .foregroundStyle(recorder.isPaused || recorder.isInterrupted ? Color.secondary : Color.red)
+                .symbolEffect(.variableColor.iterative, isActive: recorder.isRecording && !recorder.isPaused && !recorder.isInterrupted)
 
             TimelineView(.periodic(from: .now, by: 0.5)) { _ in
                 Text(Duration.seconds(recorder.currentTime), format: .time(pattern: .hourMinuteSecond))
@@ -30,7 +30,7 @@ struct RecordingView: View {
             }
 
             VStack(spacing: 8) {
-                Text(recorder.isPaused ? "Pausado" : "Gravando… pode bloquear a tela.")
+                Text(statusText)
                 HStack(spacing: 16) {
                     Label("\(recording.kind.displayName) em \(language.displayName.lowercased())", systemImage: "globe")
                     Label(folder?.name ?? "Sem pasta", systemImage: "folder")
@@ -38,6 +38,7 @@ struct RecordingView: View {
                 .font(.footnote)
             }
             .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
 
             Spacer()
 
@@ -108,6 +109,12 @@ struct RecordingView: View {
         } message: {
             Text(errorMessage ?? "")
         }
+    }
+
+    private var statusText: String {
+        if recorder.isPaused { "Pausado" }
+        else if recorder.isInterrupted { "Interrompido por uma ligação ou outro app. Volta a gravar quando terminar." }
+        else { "Gravando… pode bloquear a tela." }
     }
 
     private var markCaption: String {

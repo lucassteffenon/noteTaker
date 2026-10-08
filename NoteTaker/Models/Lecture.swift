@@ -123,4 +123,65 @@ enum Storage {
     static func newRecordingURL() -> URL {
         recordingsDirectory.appending(path: "\(UUID().uuidString).aac")
     }
+
+    /// A later segment of the recording at `main`, written after a pause or an interruption:
+    /// `<uuid>.part2.aac`, `<uuid>.part3.aac`… `mergeParts(into:)` joins them when recording ends.
+    static func partURL(of main: URL, number: Int) -> URL {
+        main.deletingPathExtension().appendingPathExtension("part\(number).aac")
+    }
+
+    static func isPart(_ url: URL) -> Bool {
+        url.deletingPathExtension().pathExtension.hasPrefix("part")
+    }
+
+    /// Appends the segments of `main` to it, in order, and deletes them. ADTS frames are
+    /// self-contained, so the joined bytes are a valid ADTS file.
+    static func mergeParts(into main: URL) {
+        let parts = parts(of: main)
+        guard !parts.isEmpty else { return }
+        if !FileManager.default.fileExists(atPath: main.path()) {
+            FileManager.default.createFile(atPath: main.path(), contents: nil)
+        }
+        guard let handle = try? FileHandle(forWritingTo: main) else { return }
+        defer { try? handle.close() }
+        for part in parts {
+            guard let data = try? Data(contentsOf: part),
+                  (try? handle.seekToEnd()) != nil,
+                  (try? handle.write(contentsOf: data)) != nil
+            else { return }
+            try? FileManager.default.removeItem(at: part)
+        }
+    }
+
+    /// Joins the segments left behind by recordings interrupted before "Concluir", except the
+    /// one still being recorded.
+    static func mergeLeftoverParts(except activeFile: String?) {
+        let files = (try? FileManager.default.contentsOfDirectory(at: recordingsDirectory, includingPropertiesForKeys: nil)) ?? []
+        let mains = Set(files.filter(isPart).map { part in
+            part.deletingPathExtension().deletingPathExtension().appendingPathExtension("aac")
+        })
+        for main in mains where main.lastPathComponent != activeFile {
+            mergeParts(into: main)
+        }
+    }
+
+    /// Deletes a recording and any segments not merged into it yet.
+    static func deleteRecording(_ main: URL) {
+        for url in [main] + parts(of: main) {
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
+
+    private static func parts(of main: URL) -> [URL] {
+        let prefix = main.deletingPathExtension().lastPathComponent + ".part"
+        let files = (try? FileManager.default.contentsOfDirectory(at: recordingsDirectory, includingPropertiesForKeys: nil)) ?? []
+        return files
+            .compactMap { url -> (Int, URL)? in
+                let name = url.deletingPathExtension().lastPathComponent
+                guard name.hasPrefix(prefix), let number = Int(name.dropFirst(prefix.count)) else { return nil }
+                return (number, url)
+            }
+            .sorted { $0.0 < $1.0 }
+            .map(\.1)
+    }
 }
