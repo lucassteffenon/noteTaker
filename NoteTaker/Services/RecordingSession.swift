@@ -19,7 +19,7 @@ final class ActiveRecording: Identifiable {
 
     init(folder: Folder?) {
         self.folder = folder
-        language = folder?.language ?? .lecture
+        language = folder?.recordingLanguage ?? .lecture
         kind = folder?.recordingKind ?? .standard
     }
 }

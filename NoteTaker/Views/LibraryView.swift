@@ -7,6 +7,7 @@ struct LibraryView: View {
     @Environment(\.modelContext) private var context
     @Environment(LectureProcessor.self) private var processor
     @State private var session = RecordingSession.shared
+    /// Every folder, including subfolders: the class schedule can point at any of them.
     @Query(sort: \Folder.name) private var folders: [Folder]
     @Query(
         filter: #Predicate<Lecture> { $0.folder == nil },
@@ -14,21 +15,21 @@ struct LibraryView: View {
     ) private var unfiledLectures: [Lecture]
 
     @State private var showSettings = false
-    @State private var isNamingFolder = false
-    @State private var folderName = ""
-    /// nil while creating a new folder; set while renaming.
-    @State private var folderToRename: Folder?
-    @State private var folderToDelete: Folder?
+    @State private var naming: FolderNaming?
     @State private var lectureToRename: Lecture?
     @State private var searchText = ""
     private let commands = RecordingCommands.shared
+
+    private var topFolders: [Folder] {
+        folders.filter { $0.parent == nil }
+    }
 
     var body: some View {
         NavigationStack {
             Group {
                 if !searchText.trimmingCharacters(in: .whitespaces).isEmpty {
                     LectureSearchResults(query: searchText.trimmingCharacters(in: .whitespaces))
-                } else if folders.isEmpty && unfiledLectures.isEmpty {
+                } else if topFolders.isEmpty && unfiledLectures.isEmpty {
                     ContentUnavailableView(
                         "Nenhuma gravação",
                         systemImage: "mic",
@@ -36,18 +37,16 @@ struct LibraryView: View {
                     )
                 } else {
                     List {
-                        if !folders.isEmpty {
+                        if !topFolders.isEmpty {
                             Section("Pastas") {
-                                ForEach(folders) { folder in
-                                    folderRow(folder)
-                                }
+                                FolderRows(folders: topFolders)
                             }
                         }
                         if !unfiledLectures.isEmpty {
                             Section {
                                 LectureRows(lectures: unfiledLectures) { lectureToRename = $0 }
                             } header: {
-                                if !folders.isEmpty { Text("Sem pasta") }
+                                if !topFolders.isEmpty { Text("Sem pasta") }
                             }
                         }
                     }
@@ -59,7 +58,7 @@ struct LibraryView: View {
             .navigationDestination(for: Lecture.self) { LectureDetailView(lecture: $0) }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Nova pasta", systemImage: "folder.badge.plus") { startNaming(nil) }
+                    Button("Nova pasta", systemImage: "folder.badge.plus") { naming = .create(parent: nil) }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Ajustes", systemImage: "gearshape") { showSettings = true }
@@ -94,67 +93,10 @@ struct LibraryView: View {
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
             .renameLectureAlert($lectureToRename)
-            .alert(folderToRename == nil ? "Nova pasta" : "Renomear pasta", isPresented: $isNamingFolder) {
-                TextField("Disciplina ou projeto", text: $folderName)
-                Button(folderToRename == nil ? "Criar" : "Salvar", action: saveFolderName)
-                    .disabled(folderName.trimmingCharacters(in: .whitespaces).isEmpty)
-                Button("Cancelar", role: .cancel) {}
-            }
-            .confirmationDialog(
-                "Apagar a pasta “\(folderToDelete?.name ?? "")”?",
-                isPresented: Binding(get: { folderToDelete != nil }, set: { if !$0 { folderToDelete = nil } }),
-                titleVisibility: .visible
-            ) {
-                Button("Apagar pasta", role: .destructive) {
-                    if let folderToDelete { context.delete(folderToDelete) }
-                    try? context.save()
-                }
-            } message: {
-                Text("As gravações desta pasta não serão apagadas. Elas vão para Sem pasta.")
-            }
+            .folderNamingAlert($naming)
         }
         // Presented from the root so it covers any screen, and comes back if the system
         // rebuilds the UI while a recording is running in the background.
         .fullScreenCover(item: $session.current) { RecordingView(recording: $0) }
-    }
-
-    private func folderRow(_ folder: Folder) -> some View {
-        NavigationLink(value: folder) {
-            HStack {
-                Label(folder.name, systemImage: folder.recordingKind == .meeting ? "person.2.fill" : "folder.fill")
-                Spacer()
-                if let language = folder.language {
-                    Label(language.displayName, systemImage: "globe")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Text("\(folder.lectures.count)")
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .contextMenu {
-            Button("Renomear", systemImage: "pencil") { startNaming(folder) }
-            Button("Apagar", systemImage: "trash", role: .destructive) { folderToDelete = folder }
-        }
-        .swipeActions {
-            Button("Apagar", systemImage: "trash", role: .destructive) { folderToDelete = folder }
-        }
-    }
-
-    private func startNaming(_ folder: Folder?) {
-        folderToRename = folder
-        folderName = folder?.name ?? ""
-        isNamingFolder = true
-    }
-
-    private func saveFolderName() {
-        let name = folderName.trimmingCharacters(in: .whitespaces)
-        guard !name.isEmpty else { return }
-        if let folderToRename {
-            folderToRename.name = name
-        } else {
-            context.insert(Folder(name: name))
-        }
-        try? context.save()
     }
 }

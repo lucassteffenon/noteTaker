@@ -30,7 +30,7 @@ struct LectureSearchResults: View {
                                 Text("· \(time.clockText)")
                             }
                             Spacer()
-                            Text(match.lecture.folder?.name ?? "Sem pasta")
+                            Text(match.lecture.folder?.path ?? "Sem pasta")
                         }
                         .font(.caption)
                         .foregroundStyle(.tertiary)

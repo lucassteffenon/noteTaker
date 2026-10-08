@@ -1,12 +1,14 @@
 import SwiftUI
 
-/// Lectures inside one folder. Recording from here files the new lecture in this folder.
+/// Subfolders, then lectures, of one folder. Recording from here files the new lecture in this
+/// folder. Review and the study guide cover the subfolders too.
 struct FolderView: View {
     let folder: Folder
     @State private var lectureToRename: Lecture?
     @State private var isReviewing = false
     @State private var isShowingGuide = false
     @State private var isEditingSchedule = false
+    @State private var naming: FolderNaming?
 
     private var lectures: [Lecture] {
         folder.lectures.sorted { $0.createdAt > $1.createdAt }
@@ -22,9 +24,14 @@ struct FolderView: View {
         Binding(get: { folder.language }, set: { folder.language = $0 })
     }
 
+    /// What "Igual a…" means for this folder's kind and language: the parent's, or Ajustes.
+    private var inheritedSource: String {
+        folder.parent.map { "Igual a \($0.name)" } ?? "Igual aos Ajustes"
+    }
+
     var body: some View {
         Group {
-            if folder.lectures.isEmpty {
+            if folder.lectures.isEmpty && folder.subfolders.isEmpty {
                 ContentUnavailableView(
                     "Nenhuma gravação nesta pasta",
                     systemImage: "folder",
@@ -32,7 +39,18 @@ struct FolderView: View {
                 )
             } else {
                 List {
-                    LectureRows(lectures: lectures) { lectureToRename = $0 }
+                    if !folder.subfolders.isEmpty {
+                        Section("Pastas") {
+                            FolderRows(folders: folder.sortedSubfolders)
+                        }
+                    }
+                    if !lectures.isEmpty {
+                        Section {
+                            LectureRows(lectures: lectures) { lectureToRename = $0 }
+                        } header: {
+                            if !folder.subfolders.isEmpty { Text("Gravações") }
+                        }
+                    }
                 }
             }
         }
@@ -44,13 +62,14 @@ struct FolderView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Revisar disciplina", systemImage: "rectangle.on.rectangle.angled") { isReviewing = true }
-                        .disabled(Flashcard.cards(from: folder.lectures).isEmpty)
+                        .disabled(Flashcard.cards(from: folder.allLectures).isEmpty)
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu("Mais", systemImage: "ellipsis") {
+                    Button("Nova subpasta", systemImage: "folder.badge.plus") { naming = .create(parent: folder) }
                     Picker(selection: kindBinding) {
-                        Text("Igual aos Ajustes (\(RecordingKind.standard.displayName))")
+                        Text("\(inheritedSource) (\((folder.parent?.recordingKind ?? .standard).displayName))")
                             .tag(RecordingKind?.none)
                         ForEach(RecordingKind.allCases) { kind in
                             Label(kind.displayName, systemImage: kind.systemImage).tag(Optional(kind))
@@ -61,7 +80,7 @@ struct FolderView: View {
                     .pickerStyle(.menu)
                     Button("Horários", systemImage: "calendar.badge.clock") { isEditingSchedule = true }
                     Picker(selection: languageBinding) {
-                        Text("Igual aos Ajustes (\(AppLanguage.lecture.displayName))")
+                        Text("\(inheritedSource) (\((folder.parent?.recordingLanguage ?? .lecture).displayName))")
                             .tag(AppLanguage?.none)
                         ForEach(AppLanguage.allCases) { language in
                             Text(language.displayName).tag(Optional(language))
@@ -74,11 +93,16 @@ struct FolderView: View {
             }
         }
         .sheet(isPresented: $isReviewing) {
-            FlashcardsView(title: folder.name, cards: Flashcard.cards(from: lectures), showsLecture: true)
+            FlashcardsView(
+                title: folder.name,
+                cards: Flashcard.cards(from: folder.allLectures.sorted { $0.createdAt > $1.createdAt }),
+                showsLecture: true
+            )
         }
         .sheet(isPresented: $isShowingGuide) { StudyGuideView(folder: folder) }
         .sheet(isPresented: $isEditingSchedule) { ScheduleEditorView(folder: folder) }
         .safeAreaInset(edge: .bottom) { RecordLectureButton(folder: folder) }
         .renameLectureAlert($lectureToRename)
+        .folderNamingAlert($naming)
     }
 }

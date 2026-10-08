@@ -41,7 +41,7 @@ struct ScheduleEditorView: View {
                     DatePicker("Início", selection: $start, displayedComponents: .hourAndMinute)
                     DatePicker("Fim", selection: $end, displayedComponents: .hourAndMinute)
                     if let conflict {
-                        Label("Conflita com \(conflict.name).", systemImage: "exclamationmark.triangle")
+                        Label("Conflita com \(conflict.path).", systemImage: "exclamationmark.triangle")
                             .foregroundStyle(.orange)
                     }
                     Button("Adicionar", systemImage: "plus", action: add)

@@ -68,9 +68,10 @@ enum StudyGuidePrompt {
         )
     }
 
-    /// Lectures that have a summary, oldest first: the order the guide numbers them in.
+    /// Lectures that have a summary, including subfolders', oldest first: the order the guide
+    /// numbers them in.
     static func sources(in folder: Folder) -> [Lecture] {
-        folder.lectures.filter { $0.summary != nil }.sorted { $0.createdAt < $1.createdAt }
+        folder.allLectures.filter { $0.summary != nil }.sorted { $0.createdAt < $1.createdAt }
     }
 
     private static func material(folderName: String, lectures: [Lecture]) -> String {

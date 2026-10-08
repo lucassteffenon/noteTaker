@@ -20,8 +20,8 @@ struct LectureRows: View {
                 Menu("Mover para", systemImage: "folder") {
                     Button("Sem pasta", systemImage: "tray") { move(lecture, to: nil) }
                         .disabled(lecture.folder == nil)
-                    ForEach(folders) { folder in
-                        Button(folder.name) { move(lecture, to: folder) }
+                    ForEach(Folder.byPath(folders)) { folder in
+                        Button(folder.path) { move(lecture, to: folder) }
                             .disabled(lecture.folder == folder)
                     }
                 }
