@@ -140,9 +140,7 @@ struct MeetingSummaryView: View {
     }
 
     private func update(_ change: (inout MeetingSummary) -> Void) {
-        guard var current = lecture.meeting else { return }
-        change(&current)
-        lecture.meeting = current
+        lecture.updateMeeting(change)
         try? context.save()
     }
 

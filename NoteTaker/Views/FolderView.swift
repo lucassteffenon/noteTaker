@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Subfolders, then lectures, of one folder. Recording from here files the new lecture in this
-/// folder. Review and the study guide cover the subfolders too.
+/// folder. Review, the study guide and the overview cover the subfolders too.
 struct FolderView: View {
     let folder: Folder
     @State private var lectureToRename: Lecture?
@@ -56,6 +56,12 @@ struct FolderView: View {
         }
         .navigationTitle(folder.name)
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink(value: FolderOverviewRoute(folder: folder)) {
+                    Label("Panorama", systemImage: "chart.bar.doc.horizontal")
+                }
+                .disabled(folder.allLectures.isEmpty)
+            }
             if kind == .lecture {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Guia para a prova", systemImage: "book.pages") { isShowingGuide = true }

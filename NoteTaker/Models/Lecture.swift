@@ -81,6 +81,13 @@ final class Lecture {
         set { meetingData = newValue.flatMap { try? JSONEncoder().encode($0) } }
     }
 
+    /// Edits the saved minutes in place (e.g. ticking an action item); does nothing without minutes.
+    func updateMeeting(_ change: (inout MeetingSummary) -> Void) {
+        guard var current = meeting else { return }
+        change(&current)
+        meeting = current
+    }
+
     /// Whether the summary for the current kind exists (class summary or meeting minutes).
     var hasSummary: Bool {
         kind == .meeting ? meetingData != nil : summaryData != nil

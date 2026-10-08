@@ -56,6 +56,7 @@ struct LibraryView: View {
             .searchable(text: $searchText, prompt: "Buscar nas gravações")
             .navigationDestination(for: Folder.self) { FolderView(folder: $0) }
             .navigationDestination(for: Lecture.self) { LectureDetailView(lecture: $0) }
+            .navigationDestination(for: FolderOverviewRoute.self) { FolderOverviewView(folder: $0.folder) }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Nova pasta", systemImage: "folder.badge.plus") { naming = .create(parent: nil) }
